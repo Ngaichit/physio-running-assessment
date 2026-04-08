@@ -27,8 +27,8 @@ import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
-const LOGO_HORIZONTAL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663339826329/JffcgFWftVOvVKZc.png";
-const LOGO_STACKED = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663339826329/ZyXkYMMucqYOgAfR.png";
+const LOGO_HORIZONTAL = "/logo-horizontal.png";
+const LOGO_STACKED = "/logo-stacked.png";
 
 const menuItems = [
   { icon: Users, label: "Patients", path: "/" },

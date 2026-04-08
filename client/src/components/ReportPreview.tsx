@@ -14,7 +14,7 @@ function PlainText({ children }: { children: string }) {
   return <p className="text-sm whitespace-pre-wrap leading-relaxed">{children}</p>;
 }
 
-const LOGO_HORIZONTAL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663339826329/JffcgFWftVOvVKZc.png";
+const LOGO_HORIZONTAL = "/logo-horizontal.png";
 
 // ======================== BRAND COLORS ========================
 // Extracted from Total Health logo
