@@ -1,0 +1,15 @@
+{
+  "query": "SELECT id, vo2FileUrl, inbodyFileUrl FROM assessments WHERE vo2FileUrl IS NOT NULL LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2tSPVu69BFcTbXb.root --database ng9MmSG5v2kx6U2WvuKz3J --execute SELECT id, vo2FileUrl, inbodyFileUrl FROM assessments WHERE vo2FileUrl IS NOT NULL LIMIT 5;",
+  "rows": [
+    {
+      "id": "1",
+      "vo2FileUrl": "https://d2xsxph8kpxj0f.cloudfront.net/310519663339826329/ng9MmSG5v2kx6U2WvuKz3J/vo2/1/1770603282301-VO2 Master Print 7.pdf",
+      "inbodyFileUrl": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tvo2FileUrl\tinbodyFileUrl\n1\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663339826329/ng9MmSG5v2kx6U2WvuKz3J/vo2/1/1770603282301-VO2 Master Print 7.pdf\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 1613
+}

@@ -1,0 +1,24 @@
+Report Investigation Findings:
+
+1. "12-Metric" references found:
+   - Line 711: PDF export says "12-Metric Running Assessment" 
+   - Line 997/1001: In-app preview says "12-Metric Running Assessment"
+   Both need to be changed to "10-Metric Running Assessment"
+
+2. Code-in-report bug:
+   - The Streamdown component renders markdown. If the AI generates content with backticks or code blocks, it will show raw code.
+   - Need to check if the AI prompt is generating content with code blocks/backticks.
+   - Also check if template literals in the PDF export are being escaped properly.
+
+3. VO2 PDF display:
+   - Currently just shows a link "View" (line 957-971 in-app, line 674-688 in PDF)
+   - Need to embed the PDF inline using an iframe or PDF viewer
+
+4. Summary charts needed:
+   - Currently has a radar chart for metrics overview
+   - Need better visual charts with L/R identification
+   - Need L vs R symmetry chart (bar chart comparing left/right values)
+
+5. Asymmetry section:
+   - Lines 729-749 (PDF) and 1063-1141 (in-app) have the asymmetry tables
+   - Need to add a visual bar chart for L vs R comparison

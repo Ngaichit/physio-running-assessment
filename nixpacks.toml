@@ -1,0 +1,2 @@
+[phases.setup]
+aptPkgs = ["poppler-utils", "fonts-noto-cjk", "fonts-liberation"]

@@ -1,0 +1,106 @@
+{
+  "query": "SELECT id, viewType, gaitPhase, legSide, LEFT(description, 50) as descr, sortOrder FROM screenshots WHERE assessmentId = 1 ORDER BY sortOrder;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2tSPVu69BFcTbXb.root --database ng9MmSG5v2kx6U2WvuKz3J --execute SELECT id, viewType, gaitPhase, legSide, LEFT(description, 50) as descr, sortOrder FROM screenshots WHERE assessmentId = 1 ORDER BY sortOrder;",
+  "rows": [
+    {
+      "id": "180001",
+      "viewType": "side_left",
+      "gaitPhase": "foot_strike",
+      "legSide": "NULL",
+      "descr": "Heel strike with slight overstride.",
+      "sortOrder": "1"
+    },
+    {
+      "id": "180002",
+      "viewType": "side_left",
+      "gaitPhase": "loading",
+      "legSide": "NULL",
+      "descr": "long and more knee loading in loading phase. incre",
+      "sortOrder": "2"
+    },
+    {
+      "id": "180003",
+      "viewType": "side_left",
+      "gaitPhase": "push_off",
+      "legSide": "NULL",
+      "descr": "Slightly on higher side on hip extension. Can be a",
+      "sortOrder": "3"
+    },
+    {
+      "id": "180004",
+      "viewType": "side_right",
+      "gaitPhase": "foot_strike",
+      "legSide": "NULL",
+      "descr": "Mild overstride",
+      "sortOrder": "4"
+    },
+    {
+      "id": "180005",
+      "viewType": "side_right",
+      "gaitPhase": "loading",
+      "legSide": "NULL",
+      "descr": "long and more knee loading in loading phase. incre",
+      "sortOrder": "5"
+    },
+    {
+      "id": "180006",
+      "viewType": "side_right",
+      "gaitPhase": "push_off",
+      "legSide": "NULL",
+      "descr": "Slightly on a higher side on hip extension. ",
+      "sortOrder": "6"
+    },
+    {
+      "id": "180016",
+      "viewType": "back",
+      "gaitPhase": "foot_strike",
+      "legSide": "left",
+      "descr": "Step width is good.",
+      "sortOrder": "7"
+    },
+    {
+      "id": "180017",
+      "viewType": "back",
+      "gaitPhase": "foot_strike",
+      "legSide": "right",
+      "descr": "Step width is good.",
+      "sortOrder": "8"
+    },
+    {
+      "id": "180018",
+      "viewType": "back",
+      "gaitPhase": "loading",
+      "legSide": "right",
+      "descr": "hip and knee position is good. ankle medial collap",
+      "sortOrder": "9"
+    },
+    {
+      "id": "180019",
+      "viewType": "back",
+      "gaitPhase": "loading",
+      "legSide": "left",
+      "descr": "hip and knee position is good. ankle medial collap",
+      "sortOrder": "10"
+    },
+    {
+      "id": "180020",
+      "viewType": "back",
+      "gaitPhase": "push_off",
+      "legSide": "left",
+      "descr": "ankle roll out. using more on the lateral side of ",
+      "sortOrder": "11"
+    },
+    {
+      "id": "180021",
+      "viewType": "back",
+      "gaitPhase": "push_off",
+      "legSide": "right",
+      "descr": "ankle roll out. using more on the lateral side of ",
+      "sortOrder": "12"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tviewType\tgaitPhase\tlegSide\tdescr\tsortOrder\n180001\tside_left\tfoot_strike\tNULL\tHeel strike with slight overstride.\t1\n180002\tside_left\tloading\tNULL\tlong and more knee loading in loading phase. incre\t2\n180003\tside_left\tpush_off\tNULL\tSlightly on higher side on hip extension. Can be a\t3\n180004\tside_right\tfoot_strike\tNULL\tMild overstride\t4\n180005\tside_right\tloading\tNULL\tlong and more knee loading in loading phase. incre\t5\n180006\tside_right\tpush_off\tNULL\tSlightly on a higher side on hip extension. \t6\n180016\tback\tfoot_strike\tleft\tStep width is good.\t7\n180017\tback\tfoot_strike\tright\tStep width is good.\t8\n180018\tback\tloading\tright\thip and knee position is good. ankle medial collap\t9\n180019\tback\tloading\tleft\thip and knee position is good. ankle medial collap\t10\n180020\tback\tpush_off\tleft\tankle roll out. using more on the lateral side of \t11\n180021\tback\tpush_off\tright\tankle roll out. using more on the lateral side of \t12\n",
+  "stderr": "",
+  "execution_time_ms": 1502
+}

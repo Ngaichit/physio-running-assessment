@@ -1,0 +1,1 @@
+ALTER TABLE `annotations` ADD `metricName` varchar(100);

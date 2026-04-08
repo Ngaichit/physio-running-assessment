@@ -1,0 +1,118 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1770597994164,
+      "tag": "0000_easy_ken_ellis",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1770598492551,
+      "tag": "0001_tan_pandemic",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1770600851591,
+      "tag": "0002_gigantic_skrulls",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1770608675821,
+      "tag": "0003_short_power_pack",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1770815965814,
+      "tag": "0004_shiny_nighthawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1770820104430,
+      "tag": "0005_violet_moon_knight",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1770946059440,
+      "tag": "0006_condemned_malcolm_colcord",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1770994808942,
+      "tag": "0007_parched_shotgun",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1771119505390,
+      "tag": "0008_wild_xorn",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1771119579803,
+      "tag": "0009_shallow_iron_lad",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1771673448000,
+      "tag": "0010_conscious_zodiak",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1771675377176,
+      "tag": "0011_colorful_pixie",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1772005525479,
+      "tag": "0012_careless_gressill",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1772067388419,
+      "tag": "0013_steady_magus",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "5",
+      "when": 1772068669925,
+      "tag": "0014_high_katie_power",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "5",
+      "when": 1772078189269,
+      "tag": "0015_aromatic_roxanne_simpson",
+      "breakpoints": true
+    }
+  ]
+}

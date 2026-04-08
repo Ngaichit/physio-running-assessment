@@ -1,0 +1,17 @@
+Radar Chart Issues from Screenshot:
+1. Top label: "21/100" score overlaps with "Shock" text, "Absorption" below it
+2. Left label: "t0/100" (should be a number) overlaps with "cy" text — "Efficiency" label is broken/truncated
+3. Right label: "st" overlaps with "90/100" — "Stability" label is broken/truncated
+4. Bottom-left: "Alignment" and "55/100" look OK
+5. Bottom-right: "Propulsion" and "65/100" look OK
+
+Root cause: The score text is positioned too close to the label text.
+For the top label, the score (21/100) is ABOVE the label text (Shock / Absorption).
+For left/right labels, the score overlaps with the label because the offset is not enough.
+
+Fix approach:
+- Increase the SVG viewBox size to give more room for labels
+- Increase the label radius offset from the chart edge
+- Position score BELOW the label consistently (not above)
+- Use separate line heights for multi-line labels
+- Make the chart bigger overall (500px instead of 420px)

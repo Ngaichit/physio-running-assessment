@@ -1,0 +1,8 @@
+{
+  "query": "SELECT id, assessment_id, view_type, gait_phase, leg_side, description, sort_order FROM screenshots WHERE assessment_id = 1 ORDER BY sort_order;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2tSPVu69BFcTbXb.root --database ng9MmSG5v2kx6U2WvuKz3J --execute SELECT id, assessment_id, view_type, gait_phase, leg_side, description, sort_order FROM screenshots WHERE assessment_id = 1 ORDER BY sort_order;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'assessment_id' in 'where clause'"
+  ]
+}

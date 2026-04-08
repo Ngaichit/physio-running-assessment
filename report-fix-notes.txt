@@ -1,0 +1,39 @@
+INVESTIGATION FINDINGS - Report & Annotation Editor Fixes
+==========================================================
+
+1. CHARTS NOT UPDATING WITH EDITOR CHANGES
+   - In-app charts use `displayReport` which IS reactive (it uses editingReport when editing)
+   - But the charts are rendered via `dangerouslySetInnerHTML` with `generateMetricsSummaryChartSVG(displayReport.metricsRatings)`
+   - This should be reactive since displayReport changes. The issue might be that when the user updates annotations/metrics in the editor tab, the report data doesn't auto-refresh.
+   - The charts in the PDF export use `currentReport` which is a snapshot of `displayReport` at export time.
+   - FIX: The charts should auto-update when the report is regenerated. If user edits metrics in annotation editor, they need to regenerate the report. This is expected behavior. But we should make sure the in-app preview charts re-render when displayReport changes.
+
+2. SCREENSHOTS IN REPORT - USE ANNOTATED (LINE-DRAWN) VERSIONS
+   - Currently: `<img src={ss.imageUrl}` - uses original screenshot
+   - No annotatedImageUrl field exists in the schema
+   - Need to render annotations on top of screenshots in the report
+   - Approach: Create a server-side or client-side function that renders annotations onto the screenshot canvas and exports as data URL
+   - Better approach: When saving annotations, also save an annotated version to S3 and store the URL
+   - Simplest approach: In ReportPreview, for each screenshot, fetch its annotations, draw them on a canvas, and use the result
+
+3. CODE SHOWING IN REPORT
+   - Streamdown component renders markdown including code blocks
+   - AI prompt already says "plain text only" but Streamdown still interprets markdown
+   - FIX: Replace Streamdown with simple text rendering (whitespace-pre-wrap) for report sections
+   - Or: Strip markdown formatting from the text before rendering
+
+4. REMOVE ASSESSMENT CATEGORY FROM 10-METRIC TABLE
+   - The metrics table shows a "rating" column with Low/Optimal/High
+   - User wants to remove the category column
+   - Need to check what "assessment category" means - likely the rating badge
+
+5. ANNOTATION EDITOR - SHOW ONLY SELECTED DEGREE
+   - Currently shows all 3 modes (Inner/Outer/180°) with values
+   - On canvas: shows both inner and outer angle text (one bold, one faded)
+   - User wants: only show the selected mode's degree value, make it clear
+   - FIX: On canvas, only draw the selected mode's arc and text
+   - In sidebar: keep the mode switcher but make the active value much more prominent
+
+6. SHOW FULL BODY IN SCREENSHOTS
+   - Currently: `aspect-[4/3] object-cover` which crops the image
+   - FIX: Use `object-contain` to show the full body without cropping
