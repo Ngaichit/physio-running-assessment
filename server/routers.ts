@@ -600,12 +600,13 @@ IMPORTANT FORMATTING RULES:
                 impressionFromTesting: { type: "string", description: "Detailed impression from all testing including VO2, InBody, and gait analysis" },
                 problems: {
                   type: "array",
+                  description: "Key clinical findings synthesised from ALL data sources: video gait metrics, VO2/cardiorespiratory data, InBody/body composition data, VALD strength testing, subjective history, and injury background. Each finding should draw connections across data sources where relevant — not just list metric deviations.",
                   items: {
                     type: "object",
                     properties: {
-                      title: { type: "string" },
-                      description: { type: "string" },
-                      findings: { type: "array", items: { type: "string", description: "A concise chain-reasoning statement (max 2-3 arrows) pointing to ONE unique consequence. Each finding must identify a DIFFERENT consequence." } }
+                      title: { type: "string", description: "Short title for this finding (e.g. 'Reduced Shock Absorption Capacity', 'Cardiorespiratory-Gait Mismatch')" },
+                      description: { type: "string", description: "A 2-3 sentence clinical explanation that references specific data from multiple sources where relevant (e.g. 'Low peak knee flexion (35°) combined with elevated tibial inclination suggests a stiff landing pattern. This is consistent with the patient's reported anterior knee pain and may be compounded by quadriceps weakness identified in VALD testing.')" },
+                      findings: { type: "array", items: { type: "string", description: "A concise chain-reasoning statement (max 2-3 arrows) pointing to ONE unique consequence. Reference the data source (e.g. 'Stiff knee at loading (M03: 35°) → ↑ bone & PF compression → anterior knee pain [consistent with subjective Hx]')" } }
                     },
                     required: ["title", "description", "findings"],
                     additionalProperties: false
@@ -1004,7 +1005,16 @@ function buildReportPrompt(patient: any, assessment: any, annotatedScreenshots: 
     prompt += `\nNo bilateral comparison data is available. Note this in the asymmetryAnalysis field.`;
   }
 
-  prompt += `\nPlease synthesize all the above information into a coherent, professional running assessment report. Use the physio's clinical notes as the primary guide for the impression and management sections, but enhance them with proper clinical language and structure. Make the report read as if written by an experienced sports physiotherapist.`;
+  prompt += `\nPlease synthesize ALL the above information into a coherent, professional running assessment report. Use the physio's clinical notes as the primary guide for the impression and management sections, but enhance them with proper clinical language and structure. Make the report read as if written by an experienced sports physiotherapist.`;
+
+  prompt += `\n\nCRITICAL — KEY FINDINGS (problems array):`;
+  prompt += `\nThe key findings must NOT just list metric deviations. They must synthesize across ALL available data sources:`;
+  prompt += `\n- Video gait analysis metrics (M01-M10 ratings and measurements)`;
+  prompt += `\n- VO2 Master / cardiorespiratory data (if available)`;
+  prompt += `\n- InBody / body composition data (if available)`;
+  prompt += `\n- VALD Dynamo strength testing (if available)`;
+  prompt += `\n- Subjective history: training load, injury history, concerns`;
+  prompt += `\nEach key finding should identify a clinical pattern that connects multiple data points. For example: link a gait deviation to a strength deficit, or relate a body composition finding to a running concern. Do NOT create findings that only reference one metric — cross-reference across data sources wherever the data supports it.`;
 
   return prompt;
 }

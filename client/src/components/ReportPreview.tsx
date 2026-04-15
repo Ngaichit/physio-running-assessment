@@ -746,11 +746,22 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
               </tr>
             </thead>
             <tbody>
+              ${formData?.cadence ? `<tr class="even" style="background:${BRAND.blueLight}">
+                <td class="mono" style="color:${BRAND.navy};font-weight:700;font-size:10px">\u2014</td>
+                <td style="font-weight:600;font-family:Inter,sans-serif;font-size:10px">Cadence</td>
+                <td class="center muted" style="font-size:9px">\u2014</td>
+                <td class="center muted" style="font-size:9px">\u2014</td>
+                <td class="center mono" colspan="2" style="font-weight:600">${formData.cadence} spm</td>
+                <td class="center mono" style="font-weight:600">${formData.cadence} spm</td>
+                <td class="center mono muted" style="font-size:9px">170\u2013180 spm</td>
+                <td class="center"><span class="${formData.cadence >= 170 && formData.cadence <= 180 ? 'rating-optimal' : formData.cadence < 170 ? 'rating-low' : 'rating-high'}">${formData.cadence >= 170 && formData.cadence <= 180 ? 'Ref. Target' : formData.cadence < 170 ? 'Low' : 'High'}</span></td>
+                <td style="color:${BRAND.text};font-size:9.5px">${formData.cadence < 170 ? '\u2191 Ground contact time' : formData.cadence > 180 ? '\u2191 Metabolic cost' : '\u2014'}</td>
+              </tr>` : ''}
               ${displayReport.metricsRatings.map((r: MetricRating, i: number) => {
                 const isCategory = r.unit === 'category';
                 const hasLR = r.leftValue != null || r.rightValue != null;
                 const ratingClass = (r.rating === 'Optimal' || r.rating === 'Ref. Target') ? 'rating-optimal' : r.rating === 'Low' ? 'rating-low' : r.rating === 'High' ? 'rating-high' : 'rating-na';
-                return `<tr class="${i % 2 === 0 ? 'even' : ''}">
+                return `<tr class="${(i + (formData?.cadence ? 1 : 0)) % 2 === 0 ? 'even' : ''}">
                   <td class="mono" style="color:${BRAND.navy};font-weight:700;font-size:10px">${r.metricId || ''}</td>
                   <td style="font-weight:600;font-family:Inter,sans-serif;font-size:10px">${r.metricName}</td>
                   <td class="center muted" style="font-size:9px">${r.view || ''}</td>
