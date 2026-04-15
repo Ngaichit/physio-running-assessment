@@ -103,11 +103,11 @@ export async function transcribeAudio(
           details: `File size is ${sizeMB.toFixed(2)}MB, maximum allowed is 16MB`
         };
       }
-    } catch (error) {
+    } catch (err: unknown) {
       return {
         error: "Failed to fetch audio file",
-        code: "SERVICE_ERROR",
-        details: error instanceof Error ? error.message : "Unknown error"
+        code: "SERVICE_ERROR" as const,
+        details: (err as Error)?.message ?? "Unknown error"
       };
     }
 
@@ -125,7 +125,7 @@ export async function transcribeAudio(
     // Add prompt - use custom prompt if provided, otherwise generate based on language
     const prompt = options.prompt || (
       options.language 
-        ? `Transcribe the user's voice to text, the user's working language is ${getLanguageName(options.language)}`
+        ? `Transcribe the user's voice to text, the user's working language is ${getLanguageName(options.language!)}`
         : "Transcribe the user's voice to text"
     );
     formData.append("prompt", prompt);

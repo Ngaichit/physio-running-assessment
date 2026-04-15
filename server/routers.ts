@@ -1150,15 +1150,15 @@ function getMetricsForView(viewType: string, gaitPhase: string): Array<{ metricN
       // M02: Tibial Inclination — IC
       {
         metricName: "Tibial Inclination",
-        description: "[M02] Forward tibial angle relative to vertical. Place 3 points: [a point DIRECTLY ABOVE the tibial tuberosity (same x, y near top — vertical reference), the TIBIAL TUBEROSITY (bony bump below kneecap), the LATERAL MALLEOLUS (bony bump on outside of ankle)]. Vertex = tibial tuberosity. Optimal: 3–8°.",
+        description: "[M02] Forward tibial angle relative to vertical. Place 3 points: [a point DIRECTLY ABOVE the tibial tuberosity (same x, y near top — vertical reference), the TIBIAL TUBEROSITY (bony bump below kneecap), the LATERAL MALLEOLUS (bony bump on outside of ankle)]. Vertex = tibial tuberosity. Optimal: 5–10°.",
         measureType: "angle"
       },
     ],
     loading: [
-      // M03: Knee Flexion (Loading)
+      // M03: Peak Knee Flexion (Stance)
       {
-        metricName: "Knee Flexion (Loading)",
-        description: "[M03] Sagittal knee flexion angle at max knee flexion during loading. Place 3 points: [HIP (greater trochanter), KNEE (center of knee joint), ANKLE (lateral malleolus)]. Vertex = KNEE. Flexion = 180 minus measured angle. Optimal: 20–30°.",
+        metricName: "Peak Knee Flexion (Stance)",
+        description: "[M03] Peak knee flexion angle during stance phase. Place 3 points: [HIP (greater trochanter), KNEE (center of knee joint), ANKLE (lateral malleolus)]. Vertex = KNEE. Optimal: 40–48°.",
         measureType: "angle"
       },
     ],
@@ -1166,23 +1166,23 @@ function getMetricsForView(viewType: string, gaitPhase: string): Array<{ metricN
       // M04: Hip Extension — Toe-Off
       {
         metricName: "Hip Extension",
-        description: "[M04] Hip extension angle at last frame before foot leaves ground. Place 3 points: [a point DIRECTLY ABOVE the hip (same x, y near top — vertical reference), the HIP (greater trochanter), the KNEE of trailing leg]. Vertex = HIP. Optimal: 10–15°.",
+        description: "[M04] Hip extension angle at late stance / toe-off. Place 3 points: [a point DIRECTLY ABOVE the hip (same x, y near top — vertical reference), the HIP (greater trochanter), the KNEE of trailing leg]. Vertex = HIP. Optimal: 10–20°.",
         measureType: "angle"
       },
     ],
     swing: [
       // M05: Trunk Lean — Mid-Stance (also captured during swing for some analyses)
       {
-        metricName: "Trunk Lean",
-        description: "[M05] Forward trunk lean angle relative to vertical. Place 3 points: [a point DIRECTLY ABOVE the acromion (same x, y near top — vertical reference), the ACROMION (shoulder tip), the GREATER TROCHANTER (hip)]. Vertex = acromion. Optimal: 6–12°.",
+        metricName: "Trunk Forward Lean",
+        description: "[M05] Forward trunk lean angle relative to vertical. Place 3 points: [a point DIRECTLY ABOVE the acromion (same x, y near top — vertical reference), the ACROMION (shoulder tip), the GREATER TROCHANTER (hip)]. Vertex = acromion. Optimal: 5–10°.",
         measureType: "angle"
       },
     ],
     other: [
       // M05: Trunk Lean — Mid-Stance
       {
-        metricName: "Trunk Lean",
-        description: "[M05] Forward trunk lean angle relative to vertical. Place 3 points: [a point DIRECTLY ABOVE the acromion (same x, y near top — vertical reference), the ACROMION (shoulder tip), the GREATER TROCHANTER (hip)]. Vertex = acromion. Optimal: 6–12°.",
+        metricName: "Trunk Forward Lean",
+        description: "[M05] Forward trunk lean angle relative to vertical. Place 3 points: [a point DIRECTLY ABOVE the acromion (same x, y near top — vertical reference), the ACROMION (shoulder tip), the GREATER TROCHANTER (hip)]. Vertex = acromion. Optimal: 5–10°.",
         measureType: "angle"
       },
     ],
@@ -1201,19 +1201,19 @@ function getMetricsForView(viewType: string, gaitPhase: string): Array<{ metricN
       // M06: Pelvic Drop — Mid-Stance
       {
         metricName: "Pelvic Drop",
-        description: "[M06] Pelvic tilt angle during mid-stance. Place 3 points: [LEFT ASIS (widest point of left pelvis), RIGHT ASIS (widest point of right pelvis), a point DIRECTLY TO THE RIGHT of left ASIS at SAME HEIGHT (horizontal reference)]. Vertex = LEFT ASIS. Optimal: <5°.",
+        description: "[M06] Pelvic tilt angle during mid-stance. Place 3 points: [LEFT ASIS (widest point of left pelvis), RIGHT ASIS (widest point of right pelvis), a point DIRECTLY TO THE RIGHT of left ASIS at SAME HEIGHT (horizontal reference)]. Vertex = LEFT ASIS. Optimal: 4–7°.",
         measureType: "angle"
       },
       // M08: Knee Frontal Angle — Mid-Stance
       {
-        metricName: "Knee Frontal Angle",
-        description: "[M08] Frontal plane valgus/varus angle during mid-stance. Place 3 points: [ASIS/hip on stance leg side, KNEE center of stance leg, ANKLE center of stance leg]. Vertex = KNEE. Optimal: 2–7°.",
+        metricName: "Knee Frontal Plane Angle",
+        description: "[M08] Frontal plane knee valgus angle during mid-stance. Place 3 points: [ASIS/hip on stance leg side, KNEE center of stance leg, ANKLE center of stance leg]. Vertex = KNEE. Optimal: 5–10°.",
         measureType: "angle"
       },
       // M09: Rearfoot Alignment — Mid-Stance
       {
-        metricName: "Rearfoot Alignment",
-        description: "[M09] Rearfoot eversion/inversion angle during mid-stance. Place 3 points: [MID-CALF (center of calf muscle), ACHILLES INSERTION (where Achilles meets heel bone), CALCANEAL BISECTION point (bottom of heel)]. Vertex = Achilles insertion. Optimal: 6–10°.",
+        metricName: "Rearfoot Eversion",
+        description: "[M09] Rearfoot eversion angle during mid-stance. Place 3 points: [MID-CALF (center of calf muscle), ACHILLES INSERTION (where Achilles meets heel bone), CALCANEAL BISECTION point (bottom of heel)]. Vertex = Achilles insertion. Optimal: 8–14°.",
         measureType: "angle"
       },
     ],
@@ -1329,21 +1329,21 @@ function getDefaultMetrics() {
     // M01: Overstride Angle — Side, IC
     { metricId: "M01", metricName: "Overstride Angle", metricCategory: "Side View", view: "Side", phase: "IC", unit: "category", whatToMeasure: "Visual category (paired with cadence)", linesToDraw: "Vertical GT + GT→Heel (visual reference)", description: "Overstride assessment based on visual category selection paired with cadence. Not degree-based — pick Understride / Optimal / Mild Overstride / Overstride from the assessment editor.", lowMin: null, lowMax: null, lowFinding: "Understride — foot lands behind or under centre of mass", optimalMin: null, optimalMax: null, highMin: null, highMax: null, highFinding: "Overstride — foot lands well ahead of centre of mass with excess braking", lowLoadShift: "↑ Hip flexor demand", highLoadShift: "↑ PF joint & anterior knee", isHigherBetter: false, isActive: true, sortOrder: 1 },
     // M02: Tibial Inclination — Side, IC
-    { metricId: "M02", metricName: "Tibial Inclination", metricCategory: "Side View", view: "Side", phase: "IC", unit: "degrees", whatToMeasure: "Tibial forward angle (°)", linesToDraw: "Vertical + Malleolus→Tib tub", description: "Forward tibial angle relative to vertical at initial contact.", lowMin: -10, lowMax: 2, lowFinding: "<0–3° Too vertical", optimalMin: 3, optimalMax: 8, highMin: 9, highMax: 90, highFinding: ">10° Excess forward", lowLoadShift: "↑ Calf/Achilles", highLoadShift: "↑ Anterior knee", isHigherBetter: false, isActive: true, sortOrder: 2 },
-    // M03: Knee Flexion (Loading) — Side, Loading
-    { metricId: "M03", metricName: "Knee Flexion (Loading)", metricCategory: "Side View", view: "Side", phase: "Loading", unit: "degrees", whatToMeasure: "Knee angle (°)", linesToDraw: "GT→Knee + Knee→Malleolus", description: "Sagittal knee flexion angle at max knee flexion during loading response.", lowMin: 0, lowMax: 14, lowFinding: "<15° Stiff", optimalMin: 20, optimalMax: 30, highMin: 36, highMax: 90, highFinding: ">35° Collapse", lowLoadShift: "↑ Bone & PF compression", highLoadShift: "↑ Quad & patellar tendon", isHigherBetter: true, isActive: true, sortOrder: 3 },
+    { metricId: "M02", metricName: "Tibial Inclination", metricCategory: "Side View", view: "Side", phase: "IC", unit: "degrees", whatToMeasure: "Tibial forward angle (°)", linesToDraw: "Vertical + Malleolus→Tib tub", description: "Forward tibial angle relative to vertical at initial contact. Large angle indicates overstride.", lowMin: -10, lowMax: 4, lowFinding: "<5° Too vertical", optimalMin: 5, optimalMax: 10, highMin: 11, highMax: 90, highFinding: ">10° Excess forward / overstride indicator", lowLoadShift: "↑ Calf/Achilles", highLoadShift: "↑ Anterior knee", isHigherBetter: false, isActive: true, sortOrder: 2 },
+    // M03: Peak Knee Flexion (Stance) — Side, Loading
+    { metricId: "M03", metricName: "Peak Knee Flexion (Stance)", metricCategory: "Side View", view: "Side", phase: "Loading", unit: "degrees", whatToMeasure: "Peak knee flexion angle (°)", linesToDraw: "GT→Knee + Knee→Malleolus", description: "Peak knee flexion angle during stance phase. Shock absorption deficit if too low, excess if too high.", lowMin: 0, lowMax: 39, lowFinding: "<40° Shock absorption deficit", optimalMin: 40, optimalMax: 48, highMin: 49, highMax: 90, highFinding: ">48° Excess flexion", lowLoadShift: "↑ Bone & PF compression", highLoadShift: "↑ Quad & patellar tendon", isHigherBetter: true, isActive: true, sortOrder: 3 },
     // M04: Hip Extension — Side, Toe-Off
-    { metricId: "M04", metricName: "Hip Extension", metricCategory: "Side View", view: "Side", phase: "Toe-Off", unit: "degrees", whatToMeasure: "Hip extension (°)", linesToDraw: "Vertical + GT→Knee", description: "Hip extension angle at last frame before foot leaves ground.", lowMin: 0, lowMax: 4, lowFinding: "<5° Limited", optimalMin: 10, optimalMax: 15, highMin: 21, highMax: 90, highFinding: ">20° Excess", lowLoadShift: "↑ Achilles/soleus", highLoadShift: "↑ Lumbar extension", isHigherBetter: true, isActive: true, sortOrder: 4 },
-    // M05: Trunk Lean — Side, Loading
-    { metricId: "M05", metricName: "Trunk Lean", metricCategory: "Side View", view: "Side", phase: "Loading", unit: "degrees", whatToMeasure: "Trunk angle (°)", linesToDraw: "Vertical + Acromion→GT", description: "Forward trunk lean angle relative to vertical during mid-stance.", lowMin: 0, lowMax: 4, lowFinding: "<5° Too upright", optimalMin: 6, optimalMax: 12, highMin: 16, highMax: 90, highFinding: ">15° Excess lean", lowLoadShift: "↑ Knee extensor load", highLoadShift: "↑ Glute & lumbar load", isHigherBetter: false, isActive: true, sortOrder: 5 },
+    { metricId: "M04", metricName: "Hip Extension", metricCategory: "Side View", view: "Side", phase: "Toe-Off", unit: "degrees", whatToMeasure: "Hip extension (°)", linesToDraw: "Vertical + GT→Knee", description: "Hip extension angle at late stance / toe-off. Reduced extension limits propulsion.", lowMin: 0, lowMax: 9, lowFinding: "<10° Reduced propulsion", optimalMin: 10, optimalMax: 20, highMin: 21, highMax: 90, highFinding: ">20° Excess extension", lowLoadShift: "↑ Achilles/soleus", highLoadShift: "↑ Lumbar extension", isHigherBetter: true, isActive: true, sortOrder: 4 },
+    // M05: Trunk Forward Lean — Side, Loading
+    { metricId: "M05", metricName: "Trunk Forward Lean", metricCategory: "Side View", view: "Side", phase: "Loading", unit: "degrees", whatToMeasure: "Trunk angle (°)", linesToDraw: "Vertical + Acromion→GT", description: "Forward trunk lean angle relative to vertical. Affects load redistribution between hip and knee.", lowMin: 0, lowMax: 4, lowFinding: "<5° Too upright", optimalMin: 5, optimalMax: 10, highMin: 11, highMax: 90, highFinding: ">10° Excess lean", lowLoadShift: "↑ Knee extensor load", highLoadShift: "↑ Glute & lumbar load", isHigherBetter: false, isActive: true, sortOrder: 5 },
     // M06: Pelvic Drop — Back, Loading
-    { metricId: "M06", metricName: "Pelvic Drop", metricCategory: "Back View", view: "Back", phase: "Loading", unit: "degrees", whatToMeasure: "Pelvic tilt (°)", linesToDraw: "ASIS→ASIS + Horizontal", description: "Pelvic tilt angle during mid-stance. Drop reflects hip abductor weakness.", lowMin: -10, lowMax: -1, lowFinding: "<0° Hip hike", optimalMin: 0, optimalMax: 5, highMin: 9, highMax: 90, highFinding: ">8° Drop", lowLoadShift: "↑ Lumbar asymmetry", highLoadShift: "↑ Medial knee & adductor", isHigherBetter: false, isActive: true, sortOrder: 6 },
+    { metricId: "M06", metricName: "Pelvic Drop", metricCategory: "Back View", view: "Back", phase: "Loading", unit: "degrees", whatToMeasure: "Pelvic tilt (°)", linesToDraw: "ASIS→ASIS + Horizontal", description: "Pelvic tilt angle during mid-stance. Reflects hip abductor control.", lowMin: -10, lowMax: 3, lowFinding: "<4° Hip hike", optimalMin: 4, optimalMax: 7, highMin: 8, highMax: 90, highFinding: ">7° Excessive drop", lowLoadShift: "↑ Lumbar asymmetry", highLoadShift: "↑ Medial knee & adductor", isHigherBetter: false, isActive: true, sortOrder: 6 },
     // M07: Step Width — Back, IC
     { metricId: "M07", metricName: "Step Width", metricCategory: "Back View", view: "Back", phase: "IC", unit: "degrees", whatToMeasure: "Foot placement (°)", linesToDraw: "Sacral vertical + Sacrum→Heel", description: "Foot placement angle from sacral vertical midline at initial contact.", lowMin: -90, lowMax: -1, lowFinding: "Negative Crossover", optimalMin: 5, optimalMax: 8, highMin: 13, highMax: 90, highFinding: ">12° Too wide", lowLoadShift: "↑ Medial knee", highLoadShift: "↑ ITB & lateral knee", isHigherBetter: true, isActive: true, sortOrder: 7 },
-    // M08: Knee Frontal Angle — Back, Loading
-    { metricId: "M08", metricName: "Knee Frontal Angle", metricCategory: "Back View", view: "Back", phase: "Loading", unit: "degrees", whatToMeasure: "Valgus/Varus (°)", linesToDraw: "ASIS→Patella + Patella→Ankle", description: "Frontal plane knee angle during mid-stance. Valgus increases knee injury risk.", lowMin: -90, lowMax: -1, lowFinding: "<0° Varus", optimalMin: 2, optimalMax: 7, highMin: 11, highMax: 90, highFinding: ">10° Valgus", lowLoadShift: "↑ Lateral compartment", highLoadShift: "↑ Medial PF & MCL", isHigherBetter: false, isActive: true, sortOrder: 8 },
-    // M09: Rearfoot Alignment — Back, Loading
-    { metricId: "M09", metricName: "Rearfoot Alignment", metricCategory: "Back View", view: "Back", phase: "Loading", unit: "degrees", whatToMeasure: "Rearfoot angle (°)", linesToDraw: "Tibial axis + Calcaneus", description: "Rearfoot eversion/inversion angle during mid-stance.", lowMin: -90, lowMax: -1, lowFinding: "<0° Inversion", optimalMin: 6, optimalMax: 10, highMin: 13, highMax: 90, highFinding: ">12° Eversion", lowLoadShift: "↑ Lateral ankle/peroneals", highLoadShift: "↑ Posterior tibial & medial knee", isHigherBetter: false, isActive: true, sortOrder: 9 },
+    // M08: Knee Frontal Plane Angle — Back, Loading
+    { metricId: "M08", metricName: "Knee Frontal Plane Angle", metricCategory: "Back View", view: "Back", phase: "Loading", unit: "degrees", whatToMeasure: "Valgus/Varus (°)", linesToDraw: "ASIS→Patella + Patella→Ankle", description: "Frontal plane knee valgus angle during mid-stance. Excessive valgus increases PFJ and ITB risk.", lowMin: -90, lowMax: 4, lowFinding: "<5° Varus", optimalMin: 5, optimalMax: 10, highMin: 11, highMax: 90, highFinding: ">10° Excessive valgus / PFJ & ITB risk", lowLoadShift: "↑ Lateral compartment", highLoadShift: "↑ Medial PF & MCL", isHigherBetter: false, isActive: true, sortOrder: 8 },
+    // M09: Rearfoot Eversion — Back, Loading
+    { metricId: "M09", metricName: "Rearfoot Eversion", metricCategory: "Back View", view: "Back", phase: "Loading", unit: "degrees", whatToMeasure: "Rearfoot eversion angle (°)", linesToDraw: "Tibial axis + Calcaneus", description: "Rearfoot eversion angle during mid-stance. Excess eversion indicates overpronation.", lowMin: -90, lowMax: 7, lowFinding: "<8° Insufficient eversion / supination", optimalMin: 8, optimalMax: 14, highMin: 15, highMax: 90, highFinding: ">14° Excess pronation", lowLoadShift: "↑ Lateral ankle/peroneals", highLoadShift: "↑ Posterior tibial & medial knee", isHigherBetter: false, isActive: true, sortOrder: 9 },
     // M10: Push-Off Alignment — Back, Toe-Off (category-based) [was M12, renumbered after M10/M11 removal]
     { metricId: "M10", metricName: "Push-Off Alignment", metricCategory: "Back View", view: "Back", phase: "Toe-Off", unit: "category", whatToMeasure: "Visual category (frontal push-off alignment)", linesToDraw: "Tibial axis + Heel→2nd MT (visual reference)", description: "Frontal plane foot alignment at push-off. Category-based — pick Lateral Push Off / Balanced / Medial Push Off from the assessment editor.", lowMin: null, lowMax: null, lowFinding: "Lateral push-off — foot rolls outward at toe-off", optimalMin: null, optimalMax: null, highMin: null, highMax: null, highFinding: "Medial push-off — foot rolls inward at toe-off", lowLoadShift: "↑ Lateral ankle/peroneals", highLoadShift: "↑ Posterior tibial/Achilles", isHigherBetter: false, isActive: true, sortOrder: 10 },
   ];

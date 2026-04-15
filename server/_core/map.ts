@@ -18,8 +18,8 @@ type MapsConfig = {
 };
 
 function getMapsConfig(): MapsConfig {
-  const baseUrl = "";
-  const apiKey = "";
+  const baseUrl: string = process.env.GOOGLE_MAPS_BASE_URL ?? "";
+  const apiKey: string = process.env.GOOGLE_MAPS_API_KEY ?? "";
 
   if (!baseUrl || !apiKey) {
     throw new Error("Google Maps is not configured.");

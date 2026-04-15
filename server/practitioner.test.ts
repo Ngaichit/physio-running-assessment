@@ -25,10 +25,10 @@ describe("Practitioner and Report Enhancements", () => {
     // Simulate the radar chart generation logic
     const metrics = [
       { metricId: "M01", metricName: "Overstride Angle", rating: "Optimal", measuredValue: 7, optimalRange: "5–8°" },
-      { metricId: "M02", metricName: "Tibial Inclination", rating: "High", measuredValue: 12, optimalRange: "3–8°" },
-      { metricId: "M03", metricName: "Knee Flexion", rating: "Low", measuredValue: 12, optimalRange: "20–30°" },
-      { metricId: "M04", metricName: "Hip Extension", rating: "Optimal", measuredValue: 12, optimalRange: "10–15°" },
-      { metricId: "M05", metricName: "Trunk Lean", rating: "Optimal", measuredValue: 8, optimalRange: "6–12°" },
+      { metricId: "M02", metricName: "Tibial Inclination", rating: "High", measuredValue: 12, optimalRange: "5–10°" },
+      { metricId: "M03", metricName: "Peak Knee Flexion (Stance)", rating: "Low", measuredValue: 35, optimalRange: "40–48°" },
+      { metricId: "M04", metricName: "Hip Extension", rating: "Optimal", measuredValue: 15, optimalRange: "10–20°" },
+      { metricId: "M05", metricName: "Trunk Forward Lean", rating: "Optimal", measuredValue: 8, optimalRange: "5–10°" },
     ];
 
     const measured = metrics.filter(m => m.rating !== "Not Measured");

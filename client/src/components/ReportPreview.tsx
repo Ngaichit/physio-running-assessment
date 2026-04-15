@@ -9,6 +9,7 @@ import { Loader2, FileDown, Wand2, RefreshCw, Pencil, Eye, Save, Plus, Trash2 } 
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 // PdfPageRenderer removed — VO2/InBody not shown in report preview
 import { toast } from "sonner";
+import { renderPdfToBase64Images } from "@/components/PdfPageRenderer";
 // Plain text renderer - replaces Streamdown to prevent markdown/code rendering
 function PlainText({ children }: { children: string }) {
   return <p className="text-sm whitespace-pre-wrap leading-relaxed">{children}</p>;
@@ -773,6 +774,24 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
       // Convert logo to base64
       const logoBase64 = await imageToBase64(LOGO_HORIZONTAL);
 
+      // Render InBody and VO2 PDF pages to images
+      let inbodyImages: string[] = [];
+      let vo2Images: string[] = [];
+      if (formData?.inbodyFileUrl) {
+        try {
+          inbodyImages = await renderPdfToBase64Images(formData.inbodyFileUrl, 2, 5);
+        } catch {
+          console.error("Failed to render InBody PDF pages");
+        }
+      }
+      if (formData?.vo2FileUrl) {
+        try {
+          vo2Images = await renderPdfToBase64Images(formData.vo2FileUrl, 2, 5);
+        } catch {
+          console.error("Failed to render VO2 PDF pages");
+        }
+      }
+
       // Build the radar chart SVG
       const radarSvg = displayReport?.metricsRatings ? generateRadarChartSVG(displayReport.metricsRatings, abilityGroupsForChart) : '';
 
@@ -898,8 +917,8 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
 
       // Asymmetry table HTML
       const asymmetryHtml = displayReport?.asymmetryData && displayReport.asymmetryData.length > 0 ? (() => {
-        const sideItems = displayReport.asymmetryData.filter((a: AsymmetryItem) => a.view === 'Side' || (!a.view && !['Pelvic Drop','Step Width','Knee Frontal Angle','Rearfoot Alignment','Trunk Rotation Asym','Hip Rotation (Mid-Swing)','Push-Off Alignment'].includes(a.metricName)));
-        const backItems = displayReport.asymmetryData.filter((a: AsymmetryItem) => a.view === 'Back' || (!a.view && ['Pelvic Drop','Step Width','Knee Frontal Angle','Rearfoot Alignment','Trunk Rotation Asym','Hip Rotation (Mid-Swing)','Push-Off Alignment'].includes(a.metricName)));
+        const sideItems = displayReport.asymmetryData.filter((a: AsymmetryItem) => a.view === 'Side' || (!a.view && !['Pelvic Drop','Step Width','Knee Frontal Plane Angle','Rearfoot Eversion','Trunk Rotation Asym','Hip Rotation (Mid-Swing)','Push-Off Alignment'].includes(a.metricName)));
+        const backItems = displayReport.asymmetryData.filter((a: AsymmetryItem) => a.view === 'Back' || (!a.view && ['Pelvic Drop','Step Width','Knee Frontal Plane Angle','Rearfoot Eversion','Trunk Rotation Asym','Hip Rotation (Mid-Swing)','Push-Off Alignment'].includes(a.metricName)));
         const renderTable = (items: AsymmetryItem[], title: string) => items.length === 0 ? '' : `
           <h3 style="font-family:Inter,sans-serif;font-size:10px;color:${BRAND.gray};text-transform:uppercase;letter-spacing:1.5px;margin:16px 0 8px;font-weight:600">${title}</h3>
           <table>
@@ -1322,6 +1341,18 @@ ${formData?.followUpMonths && formData?.assessmentDate ? (() => {
   </div>`;
 })() : ''}
 
+${inbodyImages.length > 0 ? `
+<div class="section" style="page-break-before:always">
+  <h2>InBody Body Composition Report</h2>
+  ${inbodyImages.map((img: string, i: number) => `<div style="margin-bottom:12px;text-align:center${i > 0 ? ';page-break-before:always' : ''}"><img src="${img}" style="max-width:100%;height:auto;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.08)" alt="InBody page ${i + 1}" /></div>`).join('')}
+</div>` : ''}
+
+${vo2Images.length > 0 ? `
+<div class="section" style="page-break-before:always">
+  <h2>VO2 Master Cardiorespiratory Report</h2>
+  ${vo2Images.map((img: string, i: number) => `<div style="margin-bottom:12px;text-align:center${i > 0 ? ';page-break-before:always' : ''}"><img src="${img}" style="max-width:100%;height:auto;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.08)" alt="VO2 page ${i + 1}" /></div>`).join('')}
+</div>` : ''}
+
 <!-- Practitioner Sign-off -->
 ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:3px solid ${BRAND.navy}">
   <p style="font-size:11px;color:${BRAND.gray};margin-bottom:20px;font-family:Inter,sans-serif">Kind regards,</p>
@@ -1546,8 +1577,8 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
 
         {/* Left/Right Asymmetry Analysis */}
         {(displayReport?.asymmetryData && displayReport.asymmetryData.length > 0) && (() => {
-          const sideItems = displayReport.asymmetryData.filter((a: AsymmetryItem) => a.view === "Side" || (!a.view && !["Pelvic Drop","Step Width","Knee Frontal Angle","Rearfoot Alignment","Trunk Rotation Asym","Hip Rotation (Mid-Swing)","Push-Off Alignment"].includes(a.metricName)));
-          const backItems = displayReport.asymmetryData.filter((a: AsymmetryItem) => a.view === "Back" || (!a.view && ["Pelvic Drop","Step Width","Knee Frontal Angle","Rearfoot Alignment","Trunk Rotation Asym","Hip Rotation (Mid-Swing)","Push-Off Alignment"].includes(a.metricName)));
+          const sideItems = displayReport.asymmetryData.filter((a: AsymmetryItem) => a.view === "Side" || (!a.view && !["Pelvic Drop","Step Width","Knee Frontal Plane Angle","Rearfoot Eversion","Trunk Rotation Asym","Hip Rotation (Mid-Swing)","Push-Off Alignment"].includes(a.metricName)));
+          const backItems = displayReport.asymmetryData.filter((a: AsymmetryItem) => a.view === "Back" || (!a.view && ["Pelvic Drop","Step Width","Knee Frontal Plane Angle","Rearfoot Eversion","Trunk Rotation Asym","Hip Rotation (Mid-Swing)","Push-Off Alignment"].includes(a.metricName)));
           const renderAsymSection = (items: AsymmetryItem[], title: string) => {
             if (items.length === 0) return null;
             return (

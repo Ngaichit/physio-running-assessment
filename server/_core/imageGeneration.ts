@@ -16,6 +16,8 @@
  *   });
  */
 
+import { storagePut } from "../storage";
+
 export type GenerateImageOptions = {
   prompt: string;
   originalImages?: Array<{
