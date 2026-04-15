@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   Upload, Camera, ChevronLeft, ChevronRight, Play, Pause, Trash2,
   Loader2, Pencil, SkipBack, SkipForward, RotateCcw, Move,
-  AlignHorizontalDistributeCenter
+  AlignHorizontalDistributeCenter, Maximize2, Minimize2
 } from "lucide-react";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { toast } from "sonner";
@@ -62,10 +62,28 @@ export default function VideoAnalysis({ assessmentId }: Props) {
     side_right: { ...DEFAULT_ALIGNMENT },
     back: { ...DEFAULT_ALIGNMENT },
   });
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dialogContentRef = useRef<HTMLDivElement>(null);
   const timeUpdateRef = useRef<number>(0);
+
+  const toggleFullscreen = useCallback(() => {
+    const el = dialogContentRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
 
   const { data: screenshotsList, isLoading: screenshotsLoading } = trpc.screenshot.list.useQuery({ assessmentId });
   const utils = trpc.useUtils();
@@ -771,12 +789,15 @@ export default function VideoAnalysis({ assessmentId }: Props) {
 
       {/* Annotation Dialog */}
       {annotatingScreenshot && (
-        <Dialog open={!!annotatingScreenshot} onOpenChange={() => setAnnotatingScreenshot(null)}>
-          <DialogContent className="!max-w-none !sm:max-w-none w-[98vw] h-[93vh] overflow-hidden p-3" style={{ maxWidth: '98vw' }}>
-            <DialogHeader>
+        <Dialog open={!!annotatingScreenshot} onOpenChange={() => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); setAnnotatingScreenshot(null); }}>
+          <DialogContent ref={dialogContentRef} className={`!max-w-none !sm:max-w-none overflow-hidden p-3 ${isFullscreen ? 'w-screen h-screen' : 'w-[98vw] h-[93vh]'}`} style={{ maxWidth: isFullscreen ? '100vw' : '98vw', background: isFullscreen ? '#000' : undefined }}>
+            <DialogHeader className="flex flex-row items-center justify-between">
               <DialogTitle>
                 Annotate — {viewLabel(annotatingScreenshot.viewType)}{annotatingScreenshot.viewType === "back" && annotatingScreenshot.legSide ? ` (${annotatingScreenshot.legSide === "left" ? "Left" : "Right"} Leg)` : ""} / {phaseLabel(annotatingScreenshot.gaitPhase)}
               </DialogTitle>
+              <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="h-8 w-8 mr-8" title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
+                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </Button>
             </DialogHeader>
             <AnnotationCanvas
               screenshot={annotatingScreenshot}
