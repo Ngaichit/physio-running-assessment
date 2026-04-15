@@ -2,7 +2,7 @@ export const ENV = {
   cookieSecret: process.env.JWT_SECRET ?? "",
   databaseUrl: process.env.DATABASE_URL ?? "",
   isProduction: process.env.NODE_ENV === "production",
-  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
   adminEmail: process.env.ADMIN_EMAIL ?? "",
   adminPassword: process.env.ADMIN_PASSWORD ?? "",
   // AWS S3

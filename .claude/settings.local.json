@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npm bin:*)",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(grep -n \"TODO\\\\|FIXME\\\\|BUG\\\\|XXX\" /Users/kaydenwu/Documents/02_Projects/physio-report-app-main/server/_core/*.ts /Users/kaydenwu/Documents/02_Projects/physio-report-app-main/client/src/**/*.tsx)"
     ]
   }
 }

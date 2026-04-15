@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, float, boolean } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, mediumtext, timestamp, varchar, json, float, boolean } from "drizzle-orm/mysql-core";
 
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -107,8 +107,8 @@ export const screenshots = mysqlTable("screenshots", {
   assessmentId: int("assessmentId").notNull(),
   viewType: mysqlEnum("viewType", ["side_left", "side_right", "back"]).notNull(),
   gaitPhase: mysqlEnum("gaitPhase", ["foot_strike", "loading", "mid_stance", "push_off", "swing", "other"]).notNull(),
-  imageUrl: text("imageUrl").notNull(), // S3 URL
-  thumbnailUrl: text("thumbnailUrl"),
+  imageUrl: mediumtext("imageUrl").notNull(), // S3 URL or base64 data URL
+  thumbnailUrl: mediumtext("thumbnailUrl"),
   timestamp: float("timestamp"), // video timestamp in seconds
   description: text("description"),
   legSide: varchar("legSide", { length: 10 }), // 'left' or 'right' — which leg is being analyzed (for back view)
@@ -253,7 +253,7 @@ export const videos = mysqlTable("videos", {
   id: int("id").autoincrement().primaryKey(),
   assessmentId: int("assessmentId").notNull(),
   viewType: mysqlEnum("viewType", ["side_left", "side_right", "back"]).notNull(),
-  videoUrl: text("videoUrl").notNull(),
+  videoUrl: mediumtext("videoUrl").notNull(),
   fileName: varchar("fileName", { length: 500 }),
   durationSeconds: float("durationSeconds"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
