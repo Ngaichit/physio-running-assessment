@@ -120,6 +120,13 @@
       "when": 1775643578562,
       "tag": "0016_thin_prowler",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1776263281960,
+      "tag": "0017_slippery_meltdown",
+      "breakpoints": true
     }
   ]
 }

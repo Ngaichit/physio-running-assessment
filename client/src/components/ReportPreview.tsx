@@ -710,7 +710,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
             for (let i = 0; i < group.length; i += 2) {
               const pair = group.slice(i, i + 2).map(c => c.html).join('');
               const phaseTitle = group[0].phase;
-              rows += `<div class="ss-phase-title">${phaseTitle}</div><div class="ss-row">${pair}</div>`;
+              rows += `<div class="ss-phase-group"><div class="ss-phase-title">${phaseTitle}</div><div class="ss-row">${pair}</div></div>`;
             }
           }
         }
@@ -720,7 +720,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
           for (let i = 0; i < group.length; i += 2) {
             const pair = group.slice(i, i + 2).map((c: { html: string }) => c.html).join('');
             const phaseTitle = group[0].phase;
-            rows += `<div class="ss-phase-title">${phaseTitle}</div><div class="ss-row">${pair}</div>`;
+            rows += `<div class="ss-phase-group"><div class="ss-phase-title">${phaseTitle}</div><div class="ss-row">${pair}</div></div>`;
           }
         });
         return rows;
@@ -901,38 +901,50 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   /* ===== COVER PAGE ===== */
   .cover {
     page-break-after: always;
-    display: flex; flex-direction: row; align-items: stretch;
-    min-height: 0; max-height: 100vh;
+    height: 100vh;
+    display: flex; flex-direction: column;
     background: white;
     overflow: hidden;
     position: relative;
     padding: 0;
   }
+  .cover-top {
+    flex: 1; display: flex; flex-direction: row; align-items: stretch;
+  }
   .cover-left {
     flex: 1; display: flex; flex-direction: column; justify-content: center;
-    padding: 40px 36px 50px;
+    padding: 60px 48px 60px;
   }
-  .cover-left img { width: 150px; margin-bottom: 24px; }
+  .cover-left img { width: 180px; margin-bottom: 32px; }
   .cover-left h1 {
-    font-size: 24px; font-weight: 800; color: ${BRAND.navy};
-    letter-spacing: -0.5px; line-height: 1.2; margin-bottom: 6px;
+    font-size: 28px; font-weight: 800; color: ${BRAND.navy};
+    letter-spacing: -0.5px; line-height: 1.15; margin-bottom: 10px;
     text-transform: uppercase;
   }
   .cover-left .subtitle {
-    font-size: 12px; color: ${BRAND.gray}; font-weight: 400;
+    font-size: 13px; color: ${BRAND.gray}; font-weight: 400;
     letter-spacing: 0.5px;
   }
   .cover-right {
-    width: 220px; background: ${BRAND.grayLight}; border-radius: 0 0 0 12px;
-    padding: 40px 20px; display: flex; flex-direction: column; justify-content: center;
+    width: 240px; background: ${BRAND.grayLight}; border-radius: 0 0 0 16px;
+    padding: 60px 24px; display: flex; flex-direction: column; justify-content: center;
   }
-  .cover-right .info-item { margin-bottom: 12px; }
+  .cover-right .info-item { margin-bottom: 16px; }
   .cover-right .info-label {
     font-family: 'Inter', sans-serif; font-size: 7px; text-transform: uppercase;
-    letter-spacing: 1.5px; color: ${BRAND.gray}; font-weight: 600; margin-bottom: 2px;
+    letter-spacing: 1.5px; color: ${BRAND.gray}; font-weight: 600; margin-bottom: 3px;
   }
   .cover-right .info-value {
-    font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; color: ${BRAND.navy};
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; color: ${BRAND.navy};
+  }
+  .cover-bottom {
+    padding: 20px 48px;
+    background: ${BRAND.navy};
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .cover-bottom span {
+    font-family: 'Inter', sans-serif; font-size: 8px; text-transform: uppercase;
+    letter-spacing: 1.5px; color: rgba(255,255,255,0.6); font-weight: 500;
   }
   .cover-stripe {
     position: absolute; bottom: 0; left: 0; right: 0; height: 4px;
@@ -1007,11 +1019,13 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   }
 
   /* ===== SCREENSHOT GRID ===== */
+  .ss-phase-group { page-break-inside: avoid; }
   .ss-phase-title {
     font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700;
     color: ${BRAND.navy}; text-transform: uppercase; letter-spacing: 1px;
     margin: 20px 0 8px; padding-bottom: 4px;
     border-bottom: 1px solid #e2e8f0;
+    page-break-after: avoid;
   }
   .ss-phase-title:first-child { margin-top: 0; }
   .ss-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 8px; page-break-inside: avoid; }
@@ -1094,17 +1108,23 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
 
 <!-- Cover Page -->
 <div class="cover">
-  <div class="cover-left">
-    <img src="${logoBase64}" alt="Total Health" />
-    <h1>Running Performance &<br/>Biomechanical Assessment</h1>
-    <div class="subtitle">Performance Analysis & Rehabilitation Strategy</div>
+  <div class="cover-top">
+    <div class="cover-left">
+      <img src="${logoBase64}" alt="Total Health" />
+      <h1>Running Performance &<br/>Biomechanical Assessment</h1>
+      <div class="subtitle">Performance Analysis & Rehabilitation Strategy</div>
+    </div>
+    <div class="cover-right">
+      <div class="info-item"><div class="info-label">Patient</div><div class="info-value">${patientName}</div></div>
+      ${patient?.dateOfBirth ? `<div class="info-item"><div class="info-label">Date of Birth</div><div class="info-value">${new Date(patient.dateOfBirth).toLocaleDateString('en-AU')}</div></div>` : ''}
+      <div class="info-item"><div class="info-label">Assessment Date</div><div class="info-value">${assessDate}</div></div>
+      ${practitionerName ? `<div class="info-item"><div class="info-label">Practitioner</div><div class="info-value">${practitionerName}</div></div>` : ''}
+      ${conditionsStr ? `<div class="info-item"><div class="info-label">Testing Conditions</div><div class="info-value" style="font-size:11px;font-weight:400;line-height:1.5">${conditionsStr}</div></div>` : ''}
+    </div>
   </div>
-  <div class="cover-right">
-    <div class="info-item"><div class="info-label">Patient</div><div class="info-value">${patientName}</div></div>
-    ${patient?.dateOfBirth ? `<div class="info-item"><div class="info-label">Date of Birth</div><div class="info-value">${new Date(patient.dateOfBirth).toLocaleDateString('en-AU')}</div></div>` : ''}
-    <div class="info-item"><div class="info-label">Assessment Date</div><div class="info-value">${assessDate}</div></div>
-    ${practitionerName ? `<div class="info-item"><div class="info-label">Practitioner</div><div class="info-value">${practitionerName}</div></div>` : ''}
-    ${conditionsStr ? `<div class="info-item"><div class="info-label">Testing Conditions</div><div class="info-value" style="font-size:11px;font-weight:400;line-height:1.5">${conditionsStr}</div></div>` : ''}
+  <div class="cover-bottom">
+    <span>Confidential</span>
+    <span>${assessDate}</span>
   </div>
   <div class="cover-stripe"></div>
 </div>

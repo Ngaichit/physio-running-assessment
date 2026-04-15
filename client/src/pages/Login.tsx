@@ -12,6 +12,7 @@ export default function Login() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -29,7 +30,7 @@ export default function Login() {
       const body =
         mode === "signin"
           ? { email, password }
-          : { name, email, accessCode: password };
+          : { name, email, password, inviteCode };
 
       const res = await fetch(
         mode === "signin" ? "/api/auth/login" : "/api/auth/register",
@@ -96,23 +97,38 @@ export default function Login() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="password">
-              {isSignIn ? "Password" : "Access code"}
-            </Label>
+            <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               type="password"
-              autoComplete={isSignIn ? "current-password" : "off"}
+              autoComplete={isSignIn ? "current-password" : "new-password"}
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
+              minLength={isSignIn ? undefined : 6}
             />
             {!isSignIn && (
               <p className="text-xs text-muted-foreground">
-                Ask your clinic administrator for the access code.
+                Minimum 6 characters
               </p>
             )}
           </div>
+
+          {!isSignIn && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="inviteCode">Invite Code</Label>
+              <Input
+                id="inviteCode"
+                type="text"
+                value={inviteCode}
+                onChange={e => setInviteCode(e.target.value)}
+                placeholder="Enter invite code"
+              />
+              <p className="text-xs text-muted-foreground">
+                Get this from your clinic administrator. Leave blank if not required.
+              </p>
+            </div>
+          )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 

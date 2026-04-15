@@ -1,5 +1,6 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
+import bcrypt from "bcryptjs";
 import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { ENV } from "./env";
@@ -20,6 +21,7 @@ async function createSession(
 }
 
 export function registerAuthRoutes(app: Express) {
+  // ── Login ──────────────────────────────────────────────────────────────
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     const { email, password } = req.body ?? {};
 
@@ -28,15 +30,11 @@ export function registerAuthRoutes(app: Express) {
       return;
     }
 
-    if (!ENV.adminPassword || password !== ENV.adminPassword) {
-      res.status(401).json({ error: "Invalid credentials" });
-      return;
-    }
-
     try {
       let user = await db.getUserByEmail(email);
 
-      if (!user) {
+      // Admin fallback: if user doesn't exist and this is the admin email with ENV password
+      if (!user && email === ENV.adminEmail && ENV.adminPassword && password === ENV.adminPassword) {
         await db.upsertUser({
           openId: email,
           email,
@@ -48,7 +46,21 @@ export function registerAuthRoutes(app: Express) {
       }
 
       if (!user) {
-        res.status(500).json({ error: "Failed to create user" });
+        res.status(401).json({ error: "Invalid email or password" });
+        return;
+      }
+
+      // Check password: if user has a passwordHash, use bcrypt; otherwise check ENV.adminPassword
+      if (user.passwordHash) {
+        const valid = await bcrypt.compare(password, user.passwordHash);
+        if (!valid) {
+          res.status(401).json({ error: "Invalid email or password" });
+          return;
+        }
+      } else if (ENV.adminPassword && password === ENV.adminPassword) {
+        // Legacy admin login without passwordHash
+      } else {
+        res.status(401).json({ error: "Invalid email or password" });
         return;
       }
 
@@ -60,16 +72,23 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
+  // ── Register ───────────────────────────────────────────────────────────
   app.post("/api/auth/register", async (req: Request, res: Response) => {
-    const { name, email, accessCode } = req.body ?? {};
+    const { name, email, password, inviteCode } = req.body ?? {};
 
-    if (!name || !email || !accessCode) {
-      res.status(400).json({ error: "Name, email, and access code are required" });
+    if (!name || !email || !password) {
+      res.status(400).json({ error: "Name, email, and password are required" });
       return;
     }
 
-    if (!ENV.adminPassword || accessCode !== ENV.adminPassword) {
-      res.status(401).json({ error: "Invalid access code" });
+    if (password.length < 6) {
+      res.status(400).json({ error: "Password must be at least 6 characters" });
+      return;
+    }
+
+    // Check invite code if one is configured
+    if (ENV.inviteCode && inviteCode !== ENV.inviteCode) {
+      res.status(401).json({ error: "Invalid invite code" });
       return;
     }
 
@@ -80,10 +99,13 @@ export function registerAuthRoutes(app: Express) {
         return;
       }
 
+      const passwordHash = await bcrypt.hash(password, 10);
+
       await db.upsertUser({
         openId: email,
         email,
         name,
+        passwordHash,
         loginMethod: "password",
         lastSignedIn: new Date(),
       });

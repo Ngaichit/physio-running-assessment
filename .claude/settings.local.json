@@ -4,7 +4,12 @@
       "Bash(npm bin:*)",
       "mcp__Claude_Preview__preview_start",
       "Bash(grep -n \"TODO\\\\|FIXME\\\\|BUG\\\\|XXX\" /Users/kaydenwu/Documents/02_Projects/physio-report-app-main/server/_core/*.ts /Users/kaydenwu/Documents/02_Projects/physio-report-app-main/client/src/**/*.tsx)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "mcp__Claude_in_Chrome__navigate",
+      "mcp__Claude_in_Chrome__computer",
+      "mcp__Claude_in_Chrome__javascript_tool",
+      "Bash(npx vitest:*)",
+      "Bash(pnpm add:*)"
     ]
   }
 }
