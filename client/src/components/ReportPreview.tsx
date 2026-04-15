@@ -272,138 +272,6 @@ async function renderAnnotatedScreenshotBase64(screenshot: any, annotations: any
   });
 }
 
-// Default ability groups (fallback when DB groups not loaded)
-const DEFAULT_ABILITY_GROUPS: { label: string; color: string; metricIds: string[] }[] = [
-  { label: 'Shock Absorption', color: BRAND.blue, metricIds: ['M02', 'M03'] },
-  { label: 'Stability', color: BRAND.green, metricIds: ['M06', 'M08'] },
-  { label: 'Propulsion', color: BRAND.orange, metricIds: ['M04', 'M05'] },
-  { label: 'Alignment', color: '#8B5CF6', metricIds: ['M07', 'M09'] },
-  { label: 'Efficiency', color: '#E11D48', metricIds: ['M01', 'M10'] },
-];
-
-function generateRadarChartSVG(metrics: MetricRating[], abilityGroupsOverride?: { label: string; color: string; metricIds: string[]; metricWeights?: Record<string, number> }[]): string {
-  const measured = metrics.filter(m => m.rating !== 'Not Measured');
-  if (measured.length < 2) return '';
-
-  const groups = abilityGroupsOverride && abilityGroupsOverride.length > 0 ? abilityGroupsOverride : DEFAULT_ABILITY_GROUPS;
-  const abilities = groups.map(g => {
-    const weights = (g as any).metricWeights as Record<string, number> | undefined;
-    const groupMetrics = g.metricIds
-      .map(id => measured.find(m => m.metricId === id))
-      .filter(Boolean) as MetricRating[];
-    if (groupMetrics.length === 0) return { ...g, score: 0, hasData: false };
-
-    const weightedScores = groupMetrics.map(m => {
-      let score: number;
-      if (m.unit === 'category') {
-        score = (m.rating === 'Optimal' || m.rating === 'Ref. Target') ? 90 : m.rating === 'Not Measured' ? 0 : 40;
-      } else {
-        const rangeMatch = m.optimalRange?.match(/([\d.]+)[\u2013-]([\d.]+)/);
-        if (!rangeMatch) { score = (m.rating === 'Optimal' || m.rating === 'Ref. Target') ? 90 : 50; }
-        else {
-          const optMin = parseFloat(rangeMatch[1]);
-          const optMax = parseFloat(rangeMatch[2]);
-          const range = optMax - optMin;
-          if (m.rating === 'Optimal' || m.rating === 'Ref. Target') { score = 90; }
-          else {
-            const dist = m.measuredValue < optMin ? optMin - m.measuredValue : m.measuredValue - optMax;
-            const normalizedDist = Math.min(1, dist / (range * 2 || 1));
-            score = Math.max(15, 90 - normalizedDist * 70);
-          }
-        }
-      }
-      const w = weights?.[m.metricId || ''] ?? 1.0;
-      return { score, weight: w };
-    });
-    const totalWeight = weightedScores.reduce((sum, ws) => sum + ws.weight, 0);
-    const avg = totalWeight > 0
-      ? weightedScores.reduce((sum, ws) => sum + ws.score * ws.weight, 0) / totalWeight
-      : 0;
-    return { ...g, score: Math.round(avg), hasData: true };
-  }).filter(a => a.hasData);
-
-  if (abilities.length < 3) return '';
-
-  const size = 560;
-  const cx = size / 2;
-  const cy = size / 2;
-  const maxRadius = 140;
-  const n = abilities.length;
-  const angleStep = (2 * Math.PI) / n;
-
-  let gridLines = '';
-  const gridLevels = [25, 50, 75, 100];
-  gridLevels.forEach(level => {
-    const r = (level / 100) * maxRadius;
-    let points = '';
-    for (let i = 0; i < n; i++) {
-      const angle = -Math.PI / 2 + i * angleStep;
-      points += `${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)} `;
-    }
-    gridLines += `<polygon points="${points.trim()}" fill="${level === 75 ? BRAND.green + '10' : 'none'}" stroke="${level === 75 ? BRAND.green : '#e2e8f0'}" stroke-width="${level === 75 ? 2 : 0.8}" ${level === 75 ? 'stroke-dasharray="6,3"' : ''} />`;
-    const labelAngle = -Math.PI / 2;
-    gridLines += `<text x="${cx + r * Math.cos(labelAngle) + 5}" y="${cy + r * Math.sin(labelAngle) - 4}" font-size="8" fill="#94a3b8" font-family="Inter, sans-serif">${level}</text>`;
-  });
-
-  let axes = '';
-  for (let i = 0; i < n; i++) {
-    const angle = -Math.PI / 2 + i * angleStep;
-    const x = cx + maxRadius * Math.cos(angle);
-    const y = cy + maxRadius * Math.sin(angle);
-    axes += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#cbd5e1" stroke-width="0.8" />`;
-
-    const labelR = maxRadius + 50;
-    const lx = cx + labelR * Math.cos(angle);
-    const ly = cy + labelR * Math.sin(angle);
-    const cosA = Math.cos(angle);
-    const sinA = Math.sin(angle);
-    const anchor = Math.abs(cosA) < 0.15 ? 'middle' : cosA > 0 ? 'start' : 'end';
-    const scoreColor = abilities[i].score >= 75 ? BRAND.green : abilities[i].score >= 50 ? BRAND.orange : '#dc2626';
-    const label = abilities[i].label;
-    const words = label.split(' ');
-    const isMultiWord = words.length > 1;
-    const lineHeight = 14;
-    const totalLines = isMultiWord ? 3 : 2;
-    const blockHeight = totalLines * lineHeight;
-    let baseY: number;
-    if (sinA < -0.3) { baseY = ly - blockHeight + lineHeight; }
-    else if (sinA > 0.3) { baseY = ly; }
-    else { baseY = ly - blockHeight / 2 + lineHeight / 2; }
-
-    if (isMultiWord) {
-      axes += `<text x="${lx}" y="${baseY}" text-anchor="${anchor}" dominant-baseline="auto" font-size="11" font-family="Inter, sans-serif" fill="${abilities[i].color}" font-weight="700">${words[0]}</text>`;
-      axes += `<text x="${lx}" y="${baseY + lineHeight}" text-anchor="${anchor}" dominant-baseline="auto" font-size="11" font-family="Inter, sans-serif" fill="${abilities[i].color}" font-weight="700">${words.slice(1).join(' ')}</text>`;
-      axes += `<text x="${lx}" y="${baseY + lineHeight * 2}" text-anchor="${anchor}" dominant-baseline="auto" font-size="13" font-family="Inter, sans-serif" fill="${scoreColor}" font-weight="800">${abilities[i].score}/100</text>`;
-    } else {
-      axes += `<text x="${lx}" y="${baseY}" text-anchor="${anchor}" dominant-baseline="auto" font-size="11" font-family="Inter, sans-serif" fill="${abilities[i].color}" font-weight="700">${label}</text>`;
-      axes += `<text x="${lx}" y="${baseY + lineHeight}" text-anchor="${anchor}" dominant-baseline="auto" font-size="13" font-family="Inter, sans-serif" fill="${scoreColor}" font-weight="800">${abilities[i].score}/100</text>`;
-    }
-  }
-
-  let dataPoints = '';
-  let dataDots = '';
-  for (let i = 0; i < n; i++) {
-    const angle = -Math.PI / 2 + i * angleStep;
-    const r = (abilities[i].score / 100) * maxRadius;
-    const x = cx + r * Math.cos(angle);
-    const y = cy + r * Math.sin(angle);
-    dataPoints += `${x},${y} `;
-    const dotColor = abilities[i].score >= 75 ? BRAND.green : abilities[i].score >= 50 ? BRAND.orange : '#dc2626';
-    dataDots += `<circle cx="${x}" cy="${y}" r="6" fill="${dotColor}" stroke="white" stroke-width="2.5" />`;
-  }
-
-  const legendY = size - 16;
-  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-    ${gridLines}
-    ${axes}
-    <polygon points="${dataPoints.trim()}" fill="${BRAND.blue}18" stroke="${BRAND.blue}" stroke-width="2.5" />
-    ${dataDots}
-    <text x="${cx}" y="${legendY}" text-anchor="middle" font-size="10" fill="#94a3b8" font-family="Inter, sans-serif">
-      <tspan fill="${BRAND.green}">\u25CF</tspan> Good (75+)  <tspan fill="${BRAND.orange}">\u25CF</tspan> Fair (50-74)  <tspan fill="#dc2626">\u25CF</tspan> Needs Work (&lt;50)   <tspan fill="${BRAND.green}">- -</tspan> Target Zone
-    </text>
-  </svg>`;
-}
-
 // Generate L vs R asymmetry bar chart SVG
 function generateAsymmetryChartSVG(asymmetryData: AsymmetryItem[]): string {
   const items = asymmetryData.filter(a => a.leftValue !== null && a.rightValue !== null);
@@ -530,20 +398,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   );
   const { data: screenshotsList } = trpc.screenshot.list.useQuery({ assessmentId });
   const { data: dynamoTestsList } = trpc.dynamo.list.useQuery({ assessmentId });
-  const { data: abilityGroupsData } = trpc.abilityGroup.list.useQuery();
   const utils = trpc.useUtils();
-
-  const abilityGroupsForChart = useMemo(() => {
-    if (!abilityGroupsData || abilityGroupsData.length === 0) return undefined;
-    return abilityGroupsData
-      .filter(g => g.isActive)
-      .map(g => ({
-        label: g.label,
-        color: g.color,
-        metricIds: (g.metricIds as string[]) || [],
-        metricWeights: (g.metricWeights as Record<string, number>) || undefined,
-      }));
-  }, [abilityGroupsData]);
 
   const generateReport = trpc.ai.generateReport.useMutation({
     onSuccess: () => {
@@ -791,9 +646,6 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
           console.error("Failed to render VO2 PDF pages");
         }
       }
-
-      // Build the radar chart SVG
-      const radarSvg = displayReport?.metricsRatings ? generateRadarChartSVG(displayReport.metricsRatings, abilityGroupsForChart) : '';
 
       // Build the asymmetry chart SVG
       const asymSvg = displayReport?.asymmetryData ? generateAsymmetryChartSVG(displayReport.asymmetryData) : '';
@@ -1267,13 +1119,6 @@ ${screenshotAnnotations.length > 0 ? `<div class="section"><h2>Running Analysis<
 <!-- Metrics Table -->
 <div style="page-break-before:always"></div>
 ${metricsTableHtml}
-
-<!-- Radar Chart -->
-${radarSvg ? `<div class="section" style="text-align:center"><h2>Performance Profile</h2>
-<div style="background:${BRAND.grayLight};border-radius:8px;padding:12px 16px;margin-bottom:16px;text-align:left">
-<p style="font-size:10px;line-height:1.6;color:${BRAND.gray};margin:0">The Performance Profile radar chart provides a visual overview of running biomechanics across key ability categories. Each axis represents a category (e.g., Shock Absorption, Stability, Propulsion, Alignment, Efficiency), scored from 0 to 100 based on how closely measured values fall within the reference target range. A score of 90 indicates the metric is within the reference target, while lower scores reflect increasing deviation. This chart helps identify relative strengths and areas for improvement at a glance, and can be used to track progress over time.</p>
-</div>
-${radarSvg}</div>` : ''}
 
 <!-- Asymmetry -->
 ${asymmetryHtml}

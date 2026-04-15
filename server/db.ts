@@ -10,7 +10,6 @@ import {
   videos, InsertVideo,
   dynamoTests, InsertDynamoTest,
   practitioners, InsertPractitioner,
-  abilityGroups, InsertAbilityGroup,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -342,42 +341,3 @@ export async function setDefaultPractitioner(id: number, userId: number) {
   await db.update(practitioners).set({ isDefault: true }).where(and(eq(practitioners.id, id), eq(practitioners.userId, userId)));
 }
 
-// ===== ABILITY GROUPS =====
-export async function getAbilityGroups(userId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(abilityGroups).where(eq(abilityGroups.userId, userId)).orderBy(abilityGroups.sortOrder);
-}
-
-export async function createAbilityGroup(data: InsertAbilityGroup) {
-  const db = await getDb();
-  if (!db) throw new Error("DB not available");
-  const result = await db.insert(abilityGroups).values(data);
-  const insertId = result[0].insertId;
-  const rows = await db.select().from(abilityGroups).where(eq(abilityGroups.id, insertId)).limit(1);
-  return rows[0];
-}
-
-export async function updateAbilityGroup(id: number, userId: number, data: Partial<InsertAbilityGroup>) {
-  const db = await getDb();
-  if (!db) throw new Error("DB not available");
-  await db.update(abilityGroups).set(data).where(and(eq(abilityGroups.id, id), eq(abilityGroups.userId, userId)));
-}
-
-export async function deleteAbilityGroup(id: number, userId: number) {
-  const db = await getDb();
-  if (!db) throw new Error("DB not available");
-  await db.delete(abilityGroups).where(and(eq(abilityGroups.id, id), eq(abilityGroups.userId, userId)));
-}
-
-export async function resetAbilityGroups(userId: number, groups: InsertAbilityGroup[]) {
-  const db = await getDb();
-  if (!db) throw new Error("DB not available");
-  // Delete all existing groups for this user
-  await db.delete(abilityGroups).where(eq(abilityGroups.userId, userId));
-  // Insert new groups
-  if (groups.length > 0) {
-    await db.insert(abilityGroups).values(groups);
-  }
-  return getAbilityGroups(userId);
-}

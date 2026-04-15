@@ -292,46 +292,6 @@ export const appRouter = router({
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteVideo(input.id)),
   }),
 
-  abilityGroup: router({
-    list: protectedProcedure.query(({ ctx }) => db.getAbilityGroups(ctx.user.id)),
-    create: protectedProcedure.input(z.object({
-      groupId: z.string().min(1),
-      label: z.string().min(1),
-      color: z.string().min(1),
-      metricIds: z.array(z.string()),
-      metricWeights: z.record(z.string(), z.number()).optional(),
-      sortOrder: z.number().optional(),
-      isActive: z.boolean().optional(),
-    })).mutation(({ ctx, input }) => db.createAbilityGroup({ ...input, userId: ctx.user.id })),
-    update: protectedProcedure.input(z.object({
-      id: z.number(),
-      groupId: z.string().optional(),
-      label: z.string().optional(),
-      color: z.string().optional(),
-      metricIds: z.array(z.string()).optional(),
-      metricWeights: z.record(z.string(), z.number()).optional().nullable(),
-      sortOrder: z.number().optional(),
-      isActive: z.boolean().optional(),
-    })).mutation(({ ctx, input }) => {
-      const { id, ...data } = input;
-      return db.updateAbilityGroup(id, ctx.user.id, data);
-    }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ ctx, input }) => db.deleteAbilityGroup(input.id, ctx.user.id)),
-    seedDefaults: protectedProcedure.input(z.object({ force: z.boolean().optional() }).optional()).mutation(async ({ ctx, input }) => {
-      const existing = await db.getAbilityGroups(ctx.user.id);
-      if (existing.length > 0 && !input?.force) return { seeded: false, message: "Ability groups already exist. Use force=true to reseed." };
-      const defaults = getDefaultAbilityGroups();
-      const groups = defaults.map(g => ({ ...g, userId: ctx.user.id }));
-      await db.resetAbilityGroups(ctx.user.id, groups);
-      return { seeded: true, message: `Seeded ${defaults.length} default ability groups` };
-    }),
-    reset: protectedProcedure.mutation(async ({ ctx }) => {
-      const defaults = getDefaultAbilityGroups();
-      const groups = defaults.map(g => ({ ...g, userId: ctx.user.id }));
-      return db.resetAbilityGroups(ctx.user.id, groups);
-    }),
-  }),
-
   practitioner: router({
     list: protectedProcedure.query(({ ctx }) => db.getPractitioners(ctx.user.id)),
     get: protectedProcedure.input(z.object({ id: z.number() })).query(({ ctx, input }) => db.getPractitioner(input.id, ctx.user.id)),
@@ -1346,16 +1306,6 @@ function getDefaultMetrics() {
     { metricId: "M09", metricName: "Rearfoot Eversion", metricCategory: "Back View", view: "Back", phase: "Loading", unit: "degrees", whatToMeasure: "Rearfoot eversion angle (°)", linesToDraw: "Tibial axis + Calcaneus", description: "Rearfoot eversion angle during mid-stance. Excess eversion indicates overpronation.", lowMin: -90, lowMax: 7, lowFinding: "<8° Insufficient eversion / supination", optimalMin: 8, optimalMax: 14, highMin: 15, highMax: 90, highFinding: ">14° Excess pronation", lowLoadShift: "↑ Lateral ankle/peroneals", highLoadShift: "↑ Posterior tibial & medial knee", isHigherBetter: false, isActive: true, sortOrder: 9 },
     // M10: Push-Off Alignment — Back, Toe-Off (category-based) [was M12, renumbered after M10/M11 removal]
     { metricId: "M10", metricName: "Push-Off Alignment", metricCategory: "Back View", view: "Back", phase: "Toe-Off", unit: "category", whatToMeasure: "Visual category (frontal push-off alignment)", linesToDraw: "Tibial axis + Heel→2nd MT (visual reference)", description: "Frontal plane foot alignment at push-off. Category-based — pick Lateral Push Off / Balanced / Medial Push Off from the assessment editor.", lowMin: null, lowMax: null, lowFinding: "Lateral push-off — foot rolls outward at toe-off", optimalMin: null, optimalMax: null, highMin: null, highMax: null, highFinding: "Medial push-off — foot rolls inward at toe-off", lowLoadShift: "↑ Lateral ankle/peroneals", highLoadShift: "↑ Posterior tibial/Achilles", isHigherBetter: false, isActive: true, sortOrder: 10 },
-  ];
-}
-
-function getDefaultAbilityGroups() {
-  return [
-    { groupId: "shock_absorption", label: "Shock Absorption", color: "#2874A6", metricIds: ["M02", "M03"], sortOrder: 1, isActive: true },
-    { groupId: "stability", label: "Stability", color: "#5B8C3E", metricIds: ["M06", "M08"], sortOrder: 2, isActive: true },
-    { groupId: "propulsion", label: "Propulsion", color: "#D68910", metricIds: ["M04", "M05"], sortOrder: 3, isActive: true },
-    { groupId: "alignment", label: "Alignment", color: "#8B5CF6", metricIds: ["M07", "M09"], sortOrder: 4, isActive: true },
-    { groupId: "efficiency", label: "Efficiency", color: "#E11D48", metricIds: ["M01", "M10"], sortOrder: 5, isActive: true },
   ];
 }
 
