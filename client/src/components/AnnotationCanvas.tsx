@@ -26,6 +26,7 @@ type DrawingAnnotation = {
   autoDetected?: boolean;
   useOuterAngle?: boolean;
   angleMode?: AngleMode;
+  isNegative?: boolean; // ± flag for varus/inversion/hike/crossover indication
 };
 
 interface Props {
@@ -146,6 +147,7 @@ export default function AnnotationCanvas({ screenshot, assessmentId, onClose, on
           autoDetected: data.autoDetected || false,
           useOuterAngle: a.useOuterAngle || false,
           angleMode: (data.angleMode as AngleMode) || (a.useOuterAngle ? "outer" : "inner"),
+          isNegative: data.isNegative === true || (a.measuredValue != null && a.measuredValue < 0),
         };
       });
       setAnnotations(loaded);
@@ -558,9 +560,11 @@ export default function AnnotationCanvas({ screenshot, assessmentId, onClose, on
       if (ann.type === "angle" && pts.length >= 3) {
         const inner = calculateInnerAngle(pts);
         const mode = ann.angleMode || (ann.useOuterAngle ? "outer" : "inner");
-        if (mode === "outer") ann.measuredValue = Math.round((360 - inner) * 10) / 10;
-        else if (mode === "supplement") ann.measuredValue = Math.round(Math.abs(180 - inner) * 10) / 10;
-        else ann.measuredValue = Math.round(inner * 10) / 10;
+        let val: number;
+        if (mode === "outer") val = Math.round((360 - inner) * 10) / 10;
+        else if (mode === "supplement") val = Math.round(Math.abs(180 - inner) * 10) / 10;
+        else val = Math.round(inner * 10) / 10;
+        ann.measuredValue = ann.isNegative ? -val : val;
       }
       updated[draggingPoint.annIndex] = ann;
       return updated;
@@ -622,7 +626,7 @@ export default function AnnotationCanvas({ screenshot, assessmentId, onClose, on
         await createAnnotation.mutateAsync({
           screenshotId: screenshot.id,
           annotationType: (ann.type === "horizontal" || ann.type === "vertical") ? "line" : ann.type,
-          data: { points: ann.points, subType: ann.type, autoDetected: ann.autoDetected, angleMode: ann.angleMode },
+          data: { points: ann.points, subType: ann.type, autoDetected: ann.autoDetected, angleMode: ann.angleMode, isNegative: ann.isNegative || false },
           color: ann.color,
           label: ann.label,
           metricName: ann.metricName,
@@ -1080,9 +1084,13 @@ export default function AnnotationCanvas({ screenshot, assessmentId, onClose, on
             )}
             {annotations.map((ann, i) => {
               const innerAngle = ann.type === "angle" && ann.points.length >= 3 ? calculateInnerAngle(ann.points) : null;
-              const outerAngle = innerAngle !== null ? Math.round((360 - innerAngle) * 10) / 10 : null;
-              const innerRound = innerAngle !== null ? Math.round(innerAngle * 10) / 10 : null;
-              const supplementVal = innerAngle !== null ? Math.round(Math.abs(180 - innerAngle) * 10) / 10 : null;
+              const outerAngleRaw = innerAngle !== null ? Math.round((360 - innerAngle) * 10) / 10 : null;
+              const innerRoundRaw = innerAngle !== null ? Math.round(innerAngle * 10) / 10 : null;
+              const supplementValRaw = innerAngle !== null ? Math.round(Math.abs(180 - innerAngle) * 10) / 10 : null;
+              const signMul = ann.isNegative ? -1 : 1;
+              const outerAngle = outerAngleRaw !== null ? outerAngleRaw * signMul : null;
+              const innerRound = innerRoundRaw !== null ? innerRoundRaw * signMul : null;
+              const supplementVal = supplementValRaw !== null ? supplementValRaw * signMul : null;
               const currentMode: AngleMode = ann.angleMode || (ann.useOuterAngle ? "outer" : "inner");
               const displayValue = ann.type === "angle" && innerAngle !== null
                 ? (currentMode === "outer" ? outerAngle : currentMode === "supplement" ? supplementVal : innerRound)
@@ -1129,9 +1137,10 @@ export default function AnnotationCanvas({ screenshot, assessmentId, onClose, on
                     {/* Angle mode switcher for angle annotations */}
                     {ann.type === "angle" && innerAngle !== null && (() => {
                       const currentMode: AngleMode = ann.angleMode || (ann.useOuterAngle ? "outer" : "inner");
-                      const innerVal = Math.round(innerAngle * 10) / 10;
-                      const outerVal = Math.round((360 - innerAngle) * 10) / 10;
-                      const supplementVal = Math.round(Math.abs(180 - innerAngle) * 10) / 10;
+                      const sign = ann.isNegative ? -1 : 1;
+                      const innerVal = (Math.round(innerAngle * 10) / 10) * sign;
+                      const outerVal = (Math.round((360 - innerAngle) * 10) / 10) * sign;
+                      const supplementVal = (Math.round(Math.abs(180 - innerAngle) * 10) / 10) * sign;
                       const innerRating = ann.metricName && !isCategoryMetric && metricStd ? getRating(ann.metricName, innerVal) : null;
                       const outerRating = ann.metricName && !isCategoryMetric && metricStd ? getRating(ann.metricName, outerVal) : null;
                       const supplementRating = ann.metricName && !isCategoryMetric && metricStd ? getRating(ann.metricName, supplementVal) : null;
@@ -1143,9 +1152,28 @@ export default function AnnotationCanvas({ screenshot, assessmentId, onClose, on
                           a.angleMode = mode;
                           a.useOuterAngle = mode === "outer";
                           const inner = calculateInnerAngle(a.points);
-                          if (mode === "outer") a.measuredValue = Math.round((360 - inner) * 10) / 10;
-                          else if (mode === "supplement") a.measuredValue = Math.round(Math.abs(180 - inner) * 10) / 10;
-                          else a.measuredValue = Math.round(inner * 10) / 10;
+                          let val: number;
+                          if (mode === "outer") val = Math.round((360 - inner) * 10) / 10;
+                          else if (mode === "supplement") val = Math.round(Math.abs(180 - inner) * 10) / 10;
+                          else val = Math.round(inner * 10) / 10;
+                          a.measuredValue = a.isNegative ? -val : val;
+                          updated[i] = a;
+                          return updated;
+                        });
+                      };
+
+                      const toggleSign = () => {
+                        setAnnotations(prev => {
+                          const updated = [...prev];
+                          const a = { ...updated[i] };
+                          a.isNegative = !a.isNegative;
+                          const inner = calculateInnerAngle(a.points);
+                          const m = a.angleMode || (a.useOuterAngle ? "outer" : "inner");
+                          let val: number;
+                          if (m === "outer") val = Math.round((360 - inner) * 10) / 10;
+                          else if (m === "supplement") val = Math.round(Math.abs(180 - inner) * 10) / 10;
+                          else val = Math.round(inner * 10) / 10;
+                          a.measuredValue = a.isNegative ? -val : val;
                           updated[i] = a;
                           return updated;
                         });
@@ -1158,25 +1186,39 @@ export default function AnnotationCanvas({ screenshot, assessmentId, onClose, on
                       ];
 
                       return (
-                        <div className="mt-1 flex gap-1">
-                          {modes.map(({ mode, label, value, rating, activeColor, inactiveColor }) => (
-                            <button
-                              key={mode}
-                              className={`flex-1 flex flex-col items-center gap-0.5 text-[10px] rounded px-1 py-1.5 transition-all touch-manipulation ${
-                                currentMode === mode ? activeColor + " font-bold" : inactiveColor + " opacity-70"
-                              }`}
-                              onClick={(e) => { e.stopPropagation(); switchMode(mode); }}
-                            >
-                              <span className="font-medium">{label}</span>
-                              <span className="font-mono text-[11px]">{value}°</span>
-                              {rating && (
-                                <Badge className="text-[8px] h-3 px-1" style={{ backgroundColor: rating.color, color: "#fff" }}>
-                                  {rating.rating}
-                                </Badge>
-                              )}
-                            </button>
-                          ))}
-                        </div>
+                        <>
+                          <div className="mt-1 flex gap-1">
+                            {modes.map(({ mode, label, value, rating, activeColor, inactiveColor }) => (
+                              <button
+                                key={mode}
+                                className={`flex-1 flex flex-col items-center gap-0.5 text-[10px] rounded px-1 py-1.5 transition-all touch-manipulation ${
+                                  currentMode === mode ? activeColor + " font-bold" : inactiveColor + " opacity-70"
+                                }`}
+                                onClick={(e) => { e.stopPropagation(); switchMode(mode); }}
+                              >
+                                <span className="font-medium">{label}</span>
+                                <span className="font-mono text-[11px]">{value}°</span>
+                                {rating && (
+                                  <Badge className="text-[8px] h-3 px-1" style={{ backgroundColor: rating.color, color: "#fff" }}>
+                                    {rating.rating}
+                                  </Badge>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                          <button
+                            className={`mt-1 w-full flex items-center justify-center gap-1.5 text-[10px] rounded px-2 py-1.5 transition-all touch-manipulation ${
+                              ann.isNegative
+                                ? "bg-red-100 ring-1 ring-red-400 text-red-700 font-bold"
+                                : "bg-muted/60 hover:bg-muted opacity-80"
+                            }`}
+                            onClick={(e) => { e.stopPropagation(); toggleSign(); }}
+                            title="Toggle negative direction (varus, inversion, hip hike, crossover)"
+                          >
+                            <span className="font-mono text-[12px]">{ann.isNegative ? "−" : "+"}</span>
+                            <span className="font-medium">{ann.isNegative ? "Negative direction" : "Positive direction"}</span>
+                          </button>
+                        </>
                       );
                     })()}
                   </div>
