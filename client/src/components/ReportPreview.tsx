@@ -561,20 +561,37 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
         for (const pt of pts) {
           svgContent += `<circle cx="${pt.x*100}%" cy="${pt.y*100}%" r="0.6%" fill="${color}" />`;
         }
-        // Use the STORED angle value — plain bold text, no box
+        // Use the STORED angle value — bold text inside a white rounded pill for readability
         const displayVal = ann.measuredValue != null ? Math.round(ann.measuredValue * 10) / 10 : null;
         if (displayVal != null) {
           const label = `${displayVal}\u00B0`;
           const vx = pts[1].x * 100;
           const vy = pts[1].y * 100;
-          // Simple offset: 10 units to the left and 10 units above the vertex
-          let lx = vx - 10;
-          let ly = vy - 10;
-          // Clamp within bounds
-          lx = Math.max(5, Math.min(95, lx));
-          ly = Math.max(5, Math.min(95, ly));
-          // Bold text, no outline, no box — just the angle value
-          svgContent += `<text x="${lx}%" y="${ly}%" text-anchor="middle" dominant-baseline="central" fill="${color}" font-size="20%" font-weight="900" font-family="Arial, sans-serif">${label}</text>`;
+          // Offset label from vertex along bisector direction (away from arms)
+          const a1x = pts[0].x * 100, a1y = pts[0].y * 100;
+          const a2x = pts[2].x * 100, a2y = pts[2].y * 100;
+          // Unit vectors from vertex to each arm
+          const d1 = Math.hypot(a1x - vx, a1y - vy) || 1;
+          const d2 = Math.hypot(a2x - vx, a2y - vy) || 1;
+          const u1x = (a1x - vx) / d1, u1y = (a1y - vy) / d1;
+          const u2x = (a2x - vx) / d2, u2y = (a2y - vy) / d2;
+          // Bisector points AWAY from arms (negate sum)
+          let bx = -(u1x + u2x);
+          let by = -(u1y + u2y);
+          const bl = Math.hypot(bx, by) || 1;
+          bx /= bl; by /= bl;
+          const offset = 12;
+          let lx = vx + bx * offset;
+          let ly = vy + by * offset;
+          // Estimate pill dimensions from label length
+          const boxW = label.length * 11 + 6;
+          const boxH = 22;
+          // Clamp so the pill stays fully within viewBox
+          lx = Math.max(boxW / 2 + 1, Math.min(99 - boxW / 2, lx));
+          ly = Math.max(boxH / 2 + 1, Math.min(99 - boxH / 2, ly));
+          // White rounded-rect pill with colored border + subtle shadow-like outer stroke
+          svgContent += `<rect x="${lx - boxW / 2}%" y="${ly - boxH / 2}%" width="${boxW}%" height="${boxH}%" rx="3" ry="3" fill="white" fill-opacity="0.96" stroke="${color}" stroke-width="0.5%" />`;
+          svgContent += `<text x="${lx}%" y="${ly}%" text-anchor="middle" dominant-baseline="central" fill="${color}" font-size="18%" font-weight="900" font-family="Arial, sans-serif">${label}</text>`;
         }
       } else if ((annType === 'line' || annType === 'horizontal' || annType === 'vertical') && pts.length >= 2) {
         if (annType === 'horizontal') {
