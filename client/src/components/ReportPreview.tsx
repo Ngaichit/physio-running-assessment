@@ -988,17 +988,18 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   /* ===== PAGE HEADER & FOOTER ===== */
   .page-header {
     border-top: 3px solid ${BRAND.navy};
-    padding: 8px 0 16px;
-    margin-bottom: 24px;
+    padding: 14px 0 22px;
+    margin-bottom: 36px;
     display: flex; justify-content: space-between; align-items: baseline;
+    gap: 24px;
   }
   .page-header .header-left {
-    font-family: 'Inter', sans-serif; font-size: 8px; text-transform: uppercase;
-    letter-spacing: 2px; color: ${BRAND.navy}; font-weight: 700;
+    font-family: 'Inter', sans-serif; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 3px; color: ${BRAND.navy}; font-weight: 700;
   }
   .page-header .header-right {
-    font-family: 'Inter', sans-serif; font-size: 8px; text-transform: uppercase;
-    letter-spacing: 1px; color: ${BRAND.gray}; font-weight: 500;
+    font-family: 'Inter', sans-serif; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 2px; color: ${BRAND.gray}; font-weight: 500;
   }
 
   /* ===== SECTIONS ===== */
