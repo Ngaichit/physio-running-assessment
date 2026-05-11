@@ -578,7 +578,17 @@ export const appRouter = router({
         messages: [
           {
             role: "system",
-            content: `You are an expert sports physiotherapist report writer. Generate a comprehensive, professional running assessment report based on a 10-metric running analysis system. The report should be well-structured, clinically accurate, and written in a clear, professional tone. Include specific findings, clinical reasoning, and actionable recommendations. Format the output as a JSON object with the following sections: background, impressionFromTesting (with subsections for each problem identified), management (with runningCues, mobilityExercises, strengthExercises, runningProgramming). Each section should have a 'title' and 'content' field.
+            content: `You are an expert sports physiotherapist report writer. Generate a comprehensive, professional running assessment report based on a 10-metric running analysis system. The report should be well-structured, clinically accurate, and written in a clear, professional tone. Include specific findings, clinical reasoning, and actionable recommendations.
+
+OUTPUT FORMAT — STRICT JSON SCHEMA:
+- background: plain text string (single paragraph of prose)
+- impressionFromTesting: plain text string (multi-paragraph prose)
+- summary: plain text string (1-2 paragraphs)
+- asymmetryAnalysis: plain text string
+- problems: array of objects, each with { title: string, description: string, findings: string[] }
+- management: object with { runningCues, gaitRelearning, mobilityExercises, strengthExercises, runningProgramming } — each is a plain text string with one item per line
+- metricsRatings: array (server overwrites this)
+All "string" fields MUST be plain strings, NOT objects. Do NOT wrap strings in { title, content } objects.
 
 IMPORTANT FORMATTING RULES:
 1. All text fields must be plain text only — do NOT use markdown formatting, code blocks, backticks, asterisks for bold, or any special formatting characters.
@@ -666,6 +676,27 @@ IMPORTANT FORMATTING RULES:
         if (jsonMatch) reportText = jsonMatch[0];
       }
       const parsedReport = JSON.parse(reportText);
+
+      // Defensive: flatten any { title, content } objects to plain strings.
+      // Claude sometimes returns text-section fields as objects despite the schema.
+      const flattenToString = (v: any): any => {
+        if (v == null) return v;
+        if (typeof v === "string") return v;
+        if (typeof v === "object" && !Array.isArray(v)) {
+          if (typeof v.content === "string") return v.content;
+          if (typeof v.text === "string") return v.text;
+        }
+        return v;
+      };
+      const stringFields = ["background", "impressionFromTesting", "summary", "asymmetryAnalysis"] as const;
+      for (const f of stringFields) {
+        if (parsedReport[f] != null) parsedReport[f] = flattenToString(parsedReport[f]);
+      }
+      if (parsedReport.management && typeof parsedReport.management === "object") {
+        for (const k of Object.keys(parsedReport.management)) {
+          parsedReport.management[k] = flattenToString(parsedReport.management[k]);
+        }
+      }
 
       // Merge server-computed metricsRatings into the report (more accurate than AI-generated ones)
       if (metricsRatings.length > 0) {
