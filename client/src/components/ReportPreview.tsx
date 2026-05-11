@@ -1216,11 +1216,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   <div class="cover-stripe"></div>
 </div>
 
-<!-- Page Header (repeats on each page via running header concept) -->
-<div class="page-header">
-  <span class="header-left">Total Health</span>
-  <span class="header-right">Running Performance Assessment</span>
-</div>
+<!-- Page header is rendered by @page margin boxes (repeats on every printed page) -->
 
 <!-- How to Use This Report -->
 <div class="section">
