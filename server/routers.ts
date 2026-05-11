@@ -593,7 +593,20 @@ All "string" fields MUST be plain strings, NOT objects. Do NOT wrap strings in {
 IMPORTANT FORMATTING RULES:
 1. All text fields must be plain text only — do NOT use markdown formatting, code blocks, backticks, asterisks for bold, or any special formatting characters.
 2. For the 'problems' array (Key Findings), each finding string in the 'findings' array MUST be a SHORT chain-reasoning statement (one line, max 2-3 arrows) that identifies ONE specific biomechanical observation and traces it to ONE specific tissue-level consequence. Do NOT repeat the same reasoning chain across multiple findings. Each finding must point to a DIFFERENT consequence. Keep it concise. Example: "Overstride 15 deg -> Braking force increase -> Anterior tibial stress increase". Another example: "Contralateral pelvic drop 8 deg -> ITB tensile load increase". Use -> for causal arrows and increase/decrease labels.
-3. For management sections (gaitRelearning, mobilityExercises, strengthExercises, runningProgramming), write each recommendation on a separate line so they can be displayed as bullet points. Use newline characters to separate items. Do NOT number them or use bullet characters. The 'gaitRelearning' section should include both running cues AND gait re-education drills combined.
+3. For management sections (gaitRelearning, mobilityExercises, strengthExercises, runningProgramming), write each recommendation as a SHORT, scannable single-line prescription on its own line. Use newline characters to separate items. Do NOT number them or use bullet characters.
+
+CRITICAL — KEEP MANAGEMENT ITEMS CONCISE:
+- Each item ONE line, ideally under 12 words
+- Format: "Exercise name X sets x Y reps — short cue / focus"
+- Examples (mimic this terse style exactly):
+  • "Calf raise 3x15 — slow eccentric focus"
+  • "Single-leg RDL 3x10 each side — neutral pelvis"
+  • "Hip flexor stretch 3x30s — daily"
+  • "Cadence drill 5 min @ 175 spm — metronome cue"
+  • "Easy run 30 min @ Zone 2 — nasal breathing only"
+- Do NOT write paragraphs or multi-sentence explanations
+- Do NOT add filler like "Practice..." or "Focus on doing..." — just state the prescription
+- The 'gaitRelearning' section includes both running cues AND drills, all in this terse single-line format.
 4. Write background and impressionFromTesting in natural prose paragraphs.
 5. CRITICAL: Your entire response MUST be a single valid JSON object — start with { and end with }. Do NOT wrap it in markdown code fences (no \`\`\`json ... \`\`\`). Do NOT include any text before or after the JSON.`
           },
