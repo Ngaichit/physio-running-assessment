@@ -943,11 +943,41 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;600;700&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Source Sans 3', 'Source Sans Pro', -apple-system, sans-serif; font-size: 11px; color: ${BRAND.text}; line-height: 1.6; background: ${BRAND.grayLight}; }
-  @page { size: A4; margin: 20mm 18mm 20mm 18mm; }
+  @page {
+    size: A4;
+    margin: 28mm 18mm 20mm 18mm;
+    @top-left {
+      content: "TOTAL HEALTH";
+      font-family: 'Inter', sans-serif;
+      font-size: 9px;
+      color: ${BRAND.navy};
+      font-weight: 700;
+      letter-spacing: 2.5px;
+      vertical-align: bottom;
+      padding-bottom: 8mm;
+    }
+    @top-right {
+      content: "RUNNING PERFORMANCE ASSESSMENT";
+      font-family: 'Inter', sans-serif;
+      font-size: 9px;
+      color: ${BRAND.gray};
+      font-weight: 500;
+      letter-spacing: 2px;
+      vertical-align: bottom;
+      padding-bottom: 8mm;
+    }
+  }
+  /* Suppress header on cover page (first page) */
+  @page :first {
+    margin: 0;
+    @top-left { content: none; }
+    @top-right { content: none; }
+  }
   @media print {
     .no-print { display: none !important; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
-    /* page-header flows inline only on the first content page — no fixed positioning to avoid overlapping section titles on later pages */
+    /* Hide the inline page-header — replaced by @page margin-box header that repeats on every page */
+    .page-header { display: none !important; }
   }
 
   /* ===== TYPOGRAPHY ===== */
