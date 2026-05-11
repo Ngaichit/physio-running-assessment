@@ -294,45 +294,80 @@ function generateAsymmetryChartSVG(asymmetryData: AsymmetryItem[]): string {
   const items = asymmetryData.filter(a => a.leftValue !== null && a.rightValue !== null);
   if (items.length === 0) return '';
 
-  const width = 560;
-  const rowH = 44;
-  const labelW = 100;
-  const barAreaW = (width - labelW - 20) / 2;
-  const centerX = labelW + barAreaW;
-  const height = items.length * rowH + 60;
-  const maxVal = Math.max(...items.flatMap(a => [Math.abs(a.leftValue || 0), Math.abs(a.rightValue || 0)])) * 1.2 || 30;
+  // Layout
+  const width = 720;
+  const rowH = 56;
+  const headerH = 40;
+  const footerH = 32;
+  const labelW = 170;       // wide left label gutter
+  const valueColW = 56;     // value text column on each side
+  const centerGap = 0;
+  const barAreaW = (width - labelW - valueColW * 2 - centerGap - 16) / 2;
+  const centerX = labelW + valueColW + barAreaW;
+  const height = items.length * rowH + headerH + footerH;
+  const maxVal = Math.max(
+    ...items.flatMap(a => [Math.abs(a.leftValue || 0), Math.abs(a.rightValue || 0)])
+  ) * 1.15 || 30;
 
-  let bars = '';
-  bars += `<text x="${centerX - barAreaW / 2}" y="16" text-anchor="middle" font-size="11" font-family="Inter, sans-serif" fill="${BRAND.blue}" font-weight="700">LEFT</text>`;
-  bars += `<text x="${centerX + barAreaW / 2}" y="16" text-anchor="middle" font-size="11" font-family="Inter, sans-serif" fill="${BRAND.orange}" font-weight="700">RIGHT</text>`;
-  bars += `<line x1="${centerX}" y1="24" x2="${centerX}" y2="${height - 30}" stroke="#e2e8f0" stroke-width="1.5" />`;
+  // Column headers
+  let out = '';
+  out += `<text x="${centerX - barAreaW / 2 - valueColW / 2}" y="22" text-anchor="middle" font-size="12" font-family="Inter, sans-serif" fill="${BRAND.blue}" font-weight="700" letter-spacing="2">LEFT</text>`;
+  out += `<text x="${centerX + barAreaW / 2 + valueColW / 2}" y="22" text-anchor="middle" font-size="12" font-family="Inter, sans-serif" fill="${BRAND.orange}" font-weight="700" letter-spacing="2">RIGHT</text>`;
+  out += `<text x="${labelW - 6}" y="22" text-anchor="end" font-size="10" font-family="Inter, sans-serif" fill="${BRAND.gray}" font-weight="600" letter-spacing="1.5">METRIC</text>`;
+  out += `<text x="${width - 6}" y="22" text-anchor="end" font-size="10" font-family="Inter, sans-serif" fill="${BRAND.gray}" font-weight="600" letter-spacing="1.5">DIFF</text>`;
+
+  // Center axis
+  out += `<line x1="${centerX}" y1="${headerH - 8}" x2="${centerX}" y2="${height - footerH + 4}" stroke="#cbd5e1" stroke-width="1.2" />`;
 
   items.forEach((a, i) => {
-    const y = i * rowH + 30;
-    const leftW = ((a.leftValue || 0) / maxVal) * barAreaW;
-    const rightW = ((a.rightValue || 0) / maxVal) * barAreaW;
-    if (i % 2 === 0) bars += `<rect x="0" y="${y}" width="${width}" height="${rowH}" fill="${BRAND.grayLight}" rx="0" />`;
-    bars += `<rect x="${centerX - leftW}" y="${y + 6}" width="${leftW}" height="${rowH - 18}" rx="3" fill="${BRAND.blue}" opacity="0.8" />`;
-    bars += `<text x="${centerX - leftW - 4}" y="${y + rowH / 2}" text-anchor="end" dominant-baseline="middle" font-size="9" font-family="Inter, monospace" fill="${BRAND.blue}" font-weight="600">${a.leftValue}\u00b0</text>`;
-    bars += `<rect x="${centerX}" y="${y + 6}" width="${rightW}" height="${rowH - 18}" rx="3" fill="${BRAND.orange}" opacity="0.8" />`;
-    bars += `<text x="${centerX + rightW + 4}" y="${y + rowH / 2}" dominant-baseline="middle" font-size="9" font-family="Inter, monospace" fill="${BRAND.orange}" font-weight="600">${a.rightValue}\u00b0</text>`;
-    bars += `<text x="4" y="${y + rowH / 2 - 4}" dominant-baseline="middle" font-size="8.5" font-family="Inter, sans-serif" fill="${BRAND.navy}" font-weight="600">${a.metricName.length > 16 ? a.metricName.substring(0, 15) + '\u2026' : a.metricName}</text>`;
-    if (a.difference !== null) {
-      const absDiff = Math.abs(a.difference);
-      const diffColor = absDiff <= 2 ? BRAND.green : absDiff <= 5 ? BRAND.orange : '#dc2626';
-      bars += `<text x="4" y="${y + rowH / 2 + 8}" font-size="7.5" font-family="Inter, sans-serif" fill="${diffColor}" font-weight="600">\u0394 ${absDiff}\u00b0 ${absDiff <= 2 ? '\u2713' : '\u26A0'}</text>`;
+    const y = i * rowH + headerH;
+    const leftAbs = Math.abs(a.leftValue || 0);
+    const rightAbs = Math.abs(a.rightValue || 0);
+    const leftW = (leftAbs / maxVal) * barAreaW;
+    const rightW = (rightAbs / maxVal) * barAreaW;
+    const absDiff = a.difference !== null ? Math.abs(a.difference) : null;
+    const isAsym = absDiff !== null && absDiff > 5;
+    const isMinor = absDiff !== null && absDiff > 2 && absDiff <= 5;
+    const diffColor = absDiff === null ? BRAND.gray : isAsym ? '#dc2626' : isMinor ? BRAND.orange : BRAND.green;
+    const symLabel = absDiff === null ? '\u2014' : isAsym ? 'Asymmetric' : isMinor ? 'Minor' : 'Symmetric';
+
+    // Row background (highlight asymmetric metrics in light red)
+    const rowBg = isAsym ? '#fef2f2' : i % 2 === 0 ? BRAND.grayLight : 'white';
+    out += `<rect x="0" y="${y}" width="${width}" height="${rowH}" fill="${rowBg}" />`;
+    if (isAsym) {
+      out += `<rect x="0" y="${y}" width="3" height="${rowH}" fill="#dc2626" />`;
     }
+
+    // Metric label (bigger)
+    const metricLabel = a.metricName.length > 22 ? a.metricName.substring(0, 21) + '\u2026' : a.metricName;
+    out += `<text x="10" y="${y + rowH / 2 - 6}" dominant-baseline="middle" font-size="11" font-family="Inter, sans-serif" fill="${BRAND.navy}" font-weight="600">${metricLabel}</text>`;
+    out += `<text x="10" y="${y + rowH / 2 + 11}" dominant-baseline="middle" font-size="9.5" font-family="Inter, sans-serif" fill="${diffColor}" font-weight="600">${symLabel}</text>`;
+
+    // Left bar (extends from centerX to the left)
+    const barH = 16;
+    const barY = y + rowH / 2 - barH / 2;
+    out += `<rect x="${centerX - leftW}" y="${barY}" width="${leftW}" height="${barH}" rx="3" fill="${BRAND.blue}" opacity="0.85" />`;
+    out += `<text x="${centerX - leftW - 6}" y="${y + rowH / 2}" text-anchor="end" dominant-baseline="middle" font-size="11" font-family="Inter, sans-serif" fill="${BRAND.blue}" font-weight="700">${a.leftValue}\u00b0</text>`;
+
+    // Right bar (extends from centerX to the right)
+    out += `<rect x="${centerX}" y="${barY}" width="${rightW}" height="${barH}" rx="3" fill="${BRAND.orange}" opacity="0.85" />`;
+    out += `<text x="${centerX + rightW + 6}" y="${y + rowH / 2}" dominant-baseline="middle" font-size="11" font-family="Inter, sans-serif" fill="${BRAND.orange}" font-weight="700">${a.rightValue}\u00b0</text>`;
+
+    // Diff column on the right
+    const diffText = absDiff !== null ? `${absDiff}\u00b0` : '\u2014';
+    out += `<rect x="${width - 50}" y="${y + rowH / 2 - 10}" width="44" height="20" rx="4" fill="${diffColor}" opacity="0.12" stroke="${diffColor}" stroke-width="0.8" />`;
+    out += `<text x="${width - 28}" y="${y + rowH / 2}" text-anchor="middle" dominant-baseline="middle" font-size="11" font-family="Inter, sans-serif" fill="${diffColor}" font-weight="700">${diffText}</text>`;
   });
 
-  const legendY = height - 8;
-  const legend = `<text x="${width / 2}" y="${legendY}" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Inter, sans-serif">
-    <tspan fill="${BRAND.blue}">\u25A0</tspan> Left \u00a0\u00a0 <tspan fill="${BRAND.orange}">\u25A0</tspan> Right \u00a0\u00a0 <tspan fill="${BRAND.green}">\u2713</tspan> Symmetric \u00a0 <tspan fill="#dc2626">\u26A0</tspan> Asymmetric
+  // Legend
+  const legendY = height - 10;
+  out += `<text x="${width / 2}" y="${legendY}" text-anchor="middle" font-size="10" font-family="Inter, sans-serif" fill="${BRAND.gray}">
+    <tspan fill="${BRAND.green}" font-weight="700">\u25cf</tspan> Symmetric \u22642\u00b0
+    <tspan fill="${BRAND.orange}" font-weight="700">\u25cf</tspan> Minor 2\u20135\u00b0
+    <tspan fill="#dc2626" font-weight="700">\u25cf</tspan> Asymmetric &gt;5\u00b0
   </text>`;
 
-  return `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-    ${bars}
-    ${legend}
-  </svg>`;
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="auto" style="max-width:${width}px" xmlns="http://www.w3.org/2000/svg">${out}</svg>`;
 }
 
 interface Props {
@@ -835,9 +870,9 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
           </table>`;
         return `<div class="section">
           <h2>Left vs Right Asymmetry</h2>
+          ${asymSvg ? `<div style="text-align:center;margin:8px 0 24px">${asymSvg}</div>` : ''}
           ${renderTable(sideItems, 'Side View Metrics (M01\u2013M05)')}
           ${renderTable(backItems, 'Back View Metrics (M06\u2013M10)')}
-          ${asymSvg ? `<div style="text-align:center;margin-top:12px">${asymSvg}</div>` : ''}
         </div>`;
       })() : '';
 
@@ -1542,15 +1577,11 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
                 <CardTitle className="text-base text-[#1A2744]">Left vs Right Asymmetry</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {displayReport.asymmetryData.some((a: AsymmetryItem) => a.leftValue !== null && a.rightValue !== null) && (
+                  <div className="border rounded-lg p-3 bg-white overflow-x-auto" dangerouslySetInnerHTML={{ __html: generateAsymmetryChartSVG(displayReport.asymmetryData) }} />
+                )}
                 {renderAsymSection(sideItems, "Side View Metrics (M01\u2013M05)")}
                 {renderAsymSection(backItems, "Back View Metrics (M06\u2013M10)")}
-                {displayReport.asymmetryData.some((a: AsymmetryItem) => a.leftValue !== null && a.rightValue !== null) && (
-                  <div className="mt-2">
-                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Visual Comparison</h4>
-                    <div className="flex justify-center border rounded-lg p-3 bg-white" dangerouslySetInnerHTML={{ __html: generateAsymmetryChartSVG(displayReport.asymmetryData) }} />
-                  </div>
-                )}
-
               </CardContent>
             </Card>
           );
