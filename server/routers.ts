@@ -584,7 +584,8 @@ IMPORTANT FORMATTING RULES:
 1. All text fields must be plain text only — do NOT use markdown formatting, code blocks, backticks, asterisks for bold, or any special formatting characters.
 2. For the 'problems' array (Key Findings), each finding string in the 'findings' array MUST be a SHORT chain-reasoning statement (one line, max 2-3 arrows) that identifies ONE specific biomechanical observation and traces it to ONE specific tissue-level consequence. Do NOT repeat the same reasoning chain across multiple findings. Each finding must point to a DIFFERENT consequence. Keep it concise. Example: "Overstride 15 deg -> Braking force increase -> Anterior tibial stress increase". Another example: "Contralateral pelvic drop 8 deg -> ITB tensile load increase". Use -> for causal arrows and increase/decrease labels.
 3. For management sections (runningCues, gaitRelearning, mobilityExercises, strengthExercises, runningProgramming), write each recommendation on a separate line so they can be displayed as bullet points. Use newline characters to separate items. Do NOT number them or use bullet characters.
-4. Write background and impressionFromTesting in natural prose paragraphs.`
+4. Write background and impressionFromTesting in natural prose paragraphs.
+5. CRITICAL: Your entire response MUST be a single valid JSON object — start with { and end with }. Do NOT wrap it in markdown code fences (no \`\`\`json ... \`\`\`). Do NOT include any text before or after the JSON.`
           },
           { role: "user", content: prompt }
         ],
@@ -654,7 +655,16 @@ IMPORTANT FORMATTING RULES:
       });
 
       const reportContent = result.choices[0]?.message?.content;
-      const reportText = typeof reportContent === "string" ? reportContent : JSON.stringify(reportContent);
+      const rawText = typeof reportContent === "string" ? reportContent : JSON.stringify(reportContent);
+      // Strip markdown code fences if present (Claude often wraps JSON in ```json ... ```)
+      let reportText = rawText.trim();
+      const fenceMatch = reportText.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+      if (fenceMatch) reportText = fenceMatch[1].trim();
+      // If still not pure JSON, try to extract the first {...} block
+      if (!reportText.startsWith("{")) {
+        const jsonMatch = reportText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) reportText = jsonMatch[0];
+      }
       const parsedReport = JSON.parse(reportText);
 
       // Merge server-computed metricsRatings into the report (more accurate than AI-generated ones)
