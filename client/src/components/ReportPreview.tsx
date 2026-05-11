@@ -894,9 +894,12 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
 
       // Management sections HTML
       const mgmt = displayReport?.management;
+      // Combine legacy runningCues + gaitRelearning into one Gait Relearning section
+      const combinedGaitRelearning = [asText(mgmt?.runningCues), asText(mgmt?.gaitRelearning)]
+        .filter(Boolean)
+        .join('\n');
       const mgmtSections = [
-        { label: 'Running Cues', content: asText(mgmt?.runningCues), color: BRAND.green },
-        { label: 'Gait Relearning', content: asText(mgmt?.gaitRelearning), color: BRAND.blue },
+        { label: 'Gait Relearning', content: combinedGaitRelearning, color: BRAND.blue },
         { label: 'Mobility Exercises', content: asText(mgmt?.mobilityExercises), color: BRAND.orange },
         { label: 'Strength Exercises', content: asText(mgmt?.strengthExercises), color: '#8B5CF6' },
         { label: 'Running Programming', content: asText(mgmt?.runningProgramming), color: '#6366F1' },
@@ -1752,26 +1755,30 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
             <CardTitle className="text-base text-[#1A2744]">Management</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {isEditing ? (
-              <>
-                <EditableManagementSection label="Running Cues" value={asText(editingReport?.management?.runningCues)} onChange={v => updateField("management.runningCues", v)} color="green" />
-                <EditableManagementSection label="Gait Relearning" value={asText(editingReport?.management?.gaitRelearning)} onChange={v => updateField("management.gaitRelearning", v)} color="blue" />
-                <EditableManagementSection label="Mobility Exercises" value={asText(editingReport?.management?.mobilityExercises)} onChange={v => updateField("management.mobilityExercises", v)} color="amber" />
-                <EditableManagementSection label="Strength Exercises" value={asText(editingReport?.management?.strengthExercises)} onChange={v => updateField("management.strengthExercises", v)} color="purple" />
-                <EditableManagementSection label="Running Programming" value={asText(editingReport?.management?.runningProgramming)} onChange={v => updateField("management.runningProgramming", v)} color="indigo" />
-              </>
-            ) : (
-              <>
-                {displayReport?.management?.runningCues && <ManagementSection label="Running Cues" content={displayReport.management.runningCues} color="green" />}
-                {displayReport?.management?.gaitRelearning && <ManagementSection label="Gait Relearning" content={displayReport.management.gaitRelearning} color="blue" />}
-                {displayReport?.management?.mobilityExercises && <ManagementSection label="Mobility Exercises" content={displayReport.management.mobilityExercises} color="amber" />}
-                {displayReport?.management?.strengthExercises && <ManagementSection label="Strength Exercises" content={displayReport.management.strengthExercises} color="purple" />}
-                {displayReport?.management?.runningProgramming && <ManagementSection label="Running Programming" content={displayReport.management.runningProgramming} color="indigo" />}
-                {!displayReport?.management?.runningCues && !displayReport?.management?.gaitRelearning && !displayReport?.management?.mobilityExercises && !displayReport?.management?.strengthExercises && !displayReport?.management?.runningProgramming && (
-                  <p className="text-sm text-muted-foreground italic">No management recommendations.</p>
-                )}
-              </>
-            )}
+            {(() => {
+              // Combine legacy runningCues into gaitRelearning for display/edit
+              const combinedGait = [asText(displayReport?.management?.runningCues), asText(displayReport?.management?.gaitRelearning)].filter(Boolean).join('\n');
+              const combinedEditGait = [asText(editingReport?.management?.runningCues), asText(editingReport?.management?.gaitRelearning)].filter(Boolean).join('\n');
+              const hasAny = combinedGait || displayReport?.management?.mobilityExercises || displayReport?.management?.strengthExercises || displayReport?.management?.runningProgramming;
+              return isEditing ? (
+                <>
+                  <EditableManagementSection label="Gait Relearning" value={combinedEditGait} onChange={v => { updateField("management.gaitRelearning", v); updateField("management.runningCues", ""); }} color="blue" />
+                  <EditableManagementSection label="Mobility Exercises" value={asText(editingReport?.management?.mobilityExercises)} onChange={v => updateField("management.mobilityExercises", v)} color="amber" />
+                  <EditableManagementSection label="Strength Exercises" value={asText(editingReport?.management?.strengthExercises)} onChange={v => updateField("management.strengthExercises", v)} color="purple" />
+                  <EditableManagementSection label="Running Programming" value={asText(editingReport?.management?.runningProgramming)} onChange={v => updateField("management.runningProgramming", v)} color="indigo" />
+                </>
+              ) : (
+                <>
+                  {combinedGait && <ManagementSection label="Gait Relearning" content={combinedGait} color="blue" />}
+                  {displayReport?.management?.mobilityExercises && <ManagementSection label="Mobility Exercises" content={displayReport.management.mobilityExercises} color="amber" />}
+                  {displayReport?.management?.strengthExercises && <ManagementSection label="Strength Exercises" content={displayReport.management.strengthExercises} color="purple" />}
+                  {displayReport?.management?.runningProgramming && <ManagementSection label="Running Programming" content={displayReport.management.runningProgramming} color="indigo" />}
+                  {!hasAny && (
+                    <p className="text-sm text-muted-foreground italic">No management recommendations.</p>
+                  )}
+                </>
+              );
+            })()}
           </CardContent>
         </Card>
 
