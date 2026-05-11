@@ -962,8 +962,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   @media print {
     .no-print { display: none !important; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
-    .page-header { position: fixed; top: 0; left: 0; right: 0; }
-    .page-footer { position: fixed; bottom: 0; left: 0; right: 0; }
+    /* page-header flows inline only on the first content page — no fixed positioning to avoid overlapping section titles on later pages */
   }
 
   /* ===== TYPOGRAPHY ===== */
