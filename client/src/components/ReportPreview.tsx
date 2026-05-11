@@ -11,8 +11,25 @@ import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { renderPdfToBase64Images } from "@/components/PdfPageRenderer";
 // Plain text renderer - replaces Streamdown to prevent markdown/code rendering
-function PlainText({ children }: { children: string }) {
-  return <p className="text-sm whitespace-pre-wrap leading-relaxed">{children}</p>;
+// Flatten any value to a plain string. Handles cases where the AI returned
+// { title, content } or { text } objects instead of strings.
+function asText(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.map(asText).filter(Boolean).join("\n");
+  if (typeof v === "object") {
+    const obj = v as Record<string, unknown>;
+    if (typeof obj.content === "string") return obj.content;
+    if (typeof obj.text === "string") return obj.text;
+    if (typeof obj.title === "string" && typeof obj.content === "string") return `${obj.title}\n${obj.content}`;
+    if (typeof obj.value === "string") return obj.value;
+  }
+  return "";
+}
+
+function PlainText({ children }: { children: unknown }) {
+  return <p className="text-sm whitespace-pre-wrap leading-relaxed">{asText(children)}</p>;
 }
 
 const LOGO_HORIZONTAL = "/logo-horizontal.png";
@@ -867,9 +884,9 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
           <div style="display:grid;grid-template-columns:1fr;gap:12px">
           ${displayReport.problems.map((p: any) => `
             <div class="finding-card">
-              <h3>${p.title}</h3>
-              <p>${p.description}</p>
-              ${p.findings && p.findings.length > 0 ? `<ul>${p.findings.map((f: string) => `<li>${f}</li>`).join('')}</ul>` : ''}
+              <h3>${asText(p.title)}</h3>
+              <p>${asText(p.description)}</p>
+              ${p.findings && p.findings.length > 0 ? `<ul>${p.findings.map((f: any) => `<li>${asText(f)}</li>`).join('')}</ul>` : ''}
             </div>
           `).join('')}
           </div>
@@ -878,11 +895,11 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
       // Management sections HTML
       const mgmt = displayReport?.management;
       const mgmtSections = [
-        { label: 'Running Cues', content: mgmt?.runningCues, color: BRAND.green },
-        { label: 'Gait Relearning', content: mgmt?.gaitRelearning, color: BRAND.blue },
-        { label: 'Mobility Exercises', content: mgmt?.mobilityExercises, color: BRAND.orange },
-        { label: 'Strength Exercises', content: mgmt?.strengthExercises, color: '#8B5CF6' },
-        { label: 'Running Programming', content: mgmt?.runningProgramming, color: '#6366F1' },
+        { label: 'Running Cues', content: asText(mgmt?.runningCues), color: BRAND.green },
+        { label: 'Gait Relearning', content: asText(mgmt?.gaitRelearning), color: BRAND.blue },
+        { label: 'Mobility Exercises', content: asText(mgmt?.mobilityExercises), color: BRAND.orange },
+        { label: 'Strength Exercises', content: asText(mgmt?.strengthExercises), color: '#8B5CF6' },
+        { label: 'Running Programming', content: asText(mgmt?.runningProgramming), color: '#6366F1' },
       ].filter(s => s.content);
       // managementHtml is now inlined in the HTML template with disclaimer paragraph
 
@@ -1159,7 +1176,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
 </div>
 
 <!-- Background -->
-${displayReport?.background ? `<div class="section"><h2>Background</h2><p style="font-size:11px;line-height:1.7;white-space:pre-wrap">${displayReport.background}</p></div>` : ''}
+${displayReport?.background ? `<div class="section"><h2>Background</h2><p style="font-size:11px;line-height:1.7;white-space:pre-wrap">${asText(displayReport.background)}</p></div>` : ''}
 
 <!-- Running Analysis Screenshots -->
 ${screenshotAnnotations.length > 0 ? `<div class="section"><h2>Running Analysis</h2>${screenshotRowsHtml}</div>` : ''}
@@ -1175,7 +1192,7 @@ ${asymmetryHtml}
 ${dynamoHtml}
 
 <!-- Impression -->
-${displayReport?.impressionFromTesting ? `<div style="page-break-before:always"></div><div class="section"><h2>Impression from Testing</h2><p style="font-size:11px;line-height:1.7;white-space:pre-wrap">${displayReport.impressionFromTesting}</p></div>` : ''}
+${displayReport?.impressionFromTesting ? `<div style="page-break-before:always"></div><div class="section"><h2>Impression from Testing</h2><p style="font-size:11px;line-height:1.7;white-space:pre-wrap">${asText(displayReport.impressionFromTesting)}</p></div>` : ''}
 
 <!-- Key Findings -->
 ${problemsHtml ? `<div style="page-break-before:always"></div>` : ''}
@@ -1219,7 +1236,7 @@ ${mgmtSections.length > 0 ? `
 </div>` : ''}
 
 <!-- Summary -->
-${displayReport?.summary ? `<div class="section"><h2>Summary</h2><p style="font-size:11px;line-height:1.7;white-space:pre-wrap">${displayReport.summary}</p></div>` : ''}
+${displayReport?.summary ? `<div class="section"><h2>Summary</h2><p style="font-size:11px;line-height:1.7;white-space:pre-wrap">${asText(displayReport.summary)}</p></div>` : ''}
 
 <!-- Follow-up Reassessment -->
 ${formData?.followUpMonths && formData?.assessmentDate ? (() => {
@@ -1368,7 +1385,7 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
           <CardContent>
             {isEditing ? (
               <Textarea
-                value={editingReport?.background || ""}
+                value={asText(editingReport?.background)}
                 onChange={e => updateField("background", e.target.value)}
                 rows={6}
                 className="text-sm"
@@ -1624,7 +1641,7 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
           <CardContent>
             {isEditing ? (
               <Textarea
-                value={editingReport?.impressionFromTesting || ""}
+                value={asText(editingReport?.impressionFromTesting)}
                 onChange={e => updateField("impressionFromTesting", e.target.value)}
                 rows={6}
                 className="text-sm"
@@ -1655,7 +1672,7 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
                   <div key={i} className="border rounded-lg p-3 space-y-2 relative">
                     <div className="flex items-center gap-2">
                       <Input
-                        value={p.title}
+                        value={asText(p.title)}
                         onChange={e => updateField(`problems.${i}.title`, e.target.value)}
                         className="text-sm font-medium h-8"
                         placeholder="Finding title..."
@@ -1670,7 +1687,7 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
                       </Tooltip>
                     </div>
                     <Textarea
-                      value={p.description}
+                      value={asText(p.description)}
                       onChange={e => updateField(`problems.${i}.description`, e.target.value)}
                       rows={2}
                       className="text-sm"
@@ -1687,7 +1704,7 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
                         <div key={j} className="flex items-center gap-1.5">
                           <span className="text-[#E8862A] text-xs">\u25B8</span>
                           <Input
-                            value={f}
+                            value={asText(f)}
                             onChange={e => updateField(`problems.${i}.findings.${j}`, e.target.value)}
                             className="text-sm h-7 flex-1"
                             placeholder="Finding detail..."
@@ -1707,14 +1724,14 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
               displayReport?.problems && displayReport.problems.length > 0 ? (
                 displayReport.problems.map((p: any, i: number) => (
                   <div key={i} className="border-l-4 border-[#1A6B9C] bg-[#1A6B9C]/5 pl-4 pr-3 py-3 rounded-r-lg">
-                    <h4 className="font-semibold text-[#1A2744]">{p.title}</h4>
-                    <p className="text-sm text-muted-foreground mt-1">{p.description}</p>
+                    <h4 className="font-semibold text-[#1A2744]">{asText(p.title)}</h4>
+                    <p className="text-sm text-muted-foreground mt-1">{asText(p.description)}</p>
                     {p.findings && p.findings.length > 0 && (
                       <ul className="mt-2 space-y-1">
-                        {p.findings.map((f: string, j: number) => (
+                        {p.findings.map((f: unknown, j: number) => (
                           <li key={j} className="text-sm flex items-start gap-2">
                             <span className="text-[#E8862A] mt-0.5">\u25B8</span>
-                            <span>{f}</span>
+                            <span>{asText(f)}</span>
                           </li>
                         ))}
                       </ul>
@@ -1736,11 +1753,11 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
           <CardContent className="space-y-4">
             {isEditing ? (
               <>
-                <EditableManagementSection label="Running Cues" value={editingReport?.management?.runningCues || ""} onChange={v => updateField("management.runningCues", v)} color="green" />
-                <EditableManagementSection label="Gait Relearning" value={editingReport?.management?.gaitRelearning || ""} onChange={v => updateField("management.gaitRelearning", v)} color="blue" />
-                <EditableManagementSection label="Mobility Exercises" value={editingReport?.management?.mobilityExercises || ""} onChange={v => updateField("management.mobilityExercises", v)} color="amber" />
-                <EditableManagementSection label="Strength Exercises" value={editingReport?.management?.strengthExercises || ""} onChange={v => updateField("management.strengthExercises", v)} color="purple" />
-                <EditableManagementSection label="Running Programming" value={editingReport?.management?.runningProgramming || ""} onChange={v => updateField("management.runningProgramming", v)} color="indigo" />
+                <EditableManagementSection label="Running Cues" value={asText(editingReport?.management?.runningCues)} onChange={v => updateField("management.runningCues", v)} color="green" />
+                <EditableManagementSection label="Gait Relearning" value={asText(editingReport?.management?.gaitRelearning)} onChange={v => updateField("management.gaitRelearning", v)} color="blue" />
+                <EditableManagementSection label="Mobility Exercises" value={asText(editingReport?.management?.mobilityExercises)} onChange={v => updateField("management.mobilityExercises", v)} color="amber" />
+                <EditableManagementSection label="Strength Exercises" value={asText(editingReport?.management?.strengthExercises)} onChange={v => updateField("management.strengthExercises", v)} color="purple" />
+                <EditableManagementSection label="Running Programming" value={asText(editingReport?.management?.runningProgramming)} onChange={v => updateField("management.runningProgramming", v)} color="indigo" />
               </>
             ) : (
               <>
@@ -1765,7 +1782,7 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
           <CardContent>
             {isEditing ? (
               <Textarea
-                value={editingReport?.summary || ""}
+                value={asText(editingReport?.summary)}
                 onChange={e => updateField("summary", e.target.value)}
                 rows={4}
                 className="text-sm"
@@ -1801,12 +1818,12 @@ const colorMap: Record<string, { bg: string; border: string; text: string }> = {
   indigo: { bg: "bg-indigo-50", border: "border-indigo-500", text: "text-indigo-800" },
 };
 
-function ManagementSection({ label, content, color }: { label: string; content: string; color: string }) {
+function ManagementSection({ label, content, color }: { label: string; content: unknown; color: string }) {
   const c = colorMap[color] || colorMap.green;
   return (
     <div className={`${c.bg} border-l-4 ${c.border} pl-4 py-2.5 rounded-r-lg`}>
       <h4 className={`font-semibold ${c.text} text-sm`}>{label}</h4>
-      <PlainText>{content}</PlainText>
+      <PlainText>{asText(content)}</PlainText>
     </div>
   );
 }
