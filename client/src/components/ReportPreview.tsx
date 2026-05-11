@@ -597,27 +597,27 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
           let by = -(u1y + u2y);
           const bl = Math.hypot(bx, by) || 1;
           bx /= bl; by /= bl;
-          const offset = 12;
+          const offset = 8;
           let lx = vx + bx * offset;
           let ly = vy + by * offset;
-          // Estimate pill dimensions from label length
-          const boxW = label.length * 11 + 6;
-          const boxH = 22;
+          // Compact pill dimensions
+          const boxW = label.length * 5.5 + 3;
+          const boxH = 10;
           // Clamp so the pill stays fully within viewBox
           lx = Math.max(boxW / 2 + 1, Math.min(99 - boxW / 2, lx));
           ly = Math.max(boxH / 2 + 1, Math.min(99 - boxH / 2, ly));
-          // White rounded-rect pill with colored border + subtle shadow-like outer stroke
-          svgContent += `<rect x="${lx - boxW / 2}%" y="${ly - boxH / 2}%" width="${boxW}%" height="${boxH}%" rx="3" ry="3" fill="white" fill-opacity="0.96" stroke="${color}" stroke-width="0.5%" />`;
-          svgContent += `<text x="${lx}%" y="${ly}%" text-anchor="middle" dominant-baseline="central" fill="${color}" font-size="18%" font-weight="900" font-family="Arial, sans-serif">${label}</text>`;
+          // Compact white rounded-rect pill with colored border
+          svgContent += `<rect x="${lx - boxW / 2}%" y="${ly - boxH / 2}%" width="${boxW}%" height="${boxH}%" rx="2" ry="2" fill="white" fill-opacity="0.96" stroke="${color}" stroke-width="0.3%" />`;
+          svgContent += `<text x="${lx}%" y="${ly}%" text-anchor="middle" dominant-baseline="central" fill="${color}" font-size="8%" font-weight="900" font-family="Arial, sans-serif">${label}</text>`;
         }
-      } else if ((annType === 'line' || annType === 'horizontal' || annType === 'vertical') && pts.length >= 2) {
-        if (annType === 'horizontal') {
-          svgContent += `<line x1="0" y1="${pts[0].y*100}%" x2="100%" y2="${pts[0].y*100}%" stroke="${color}" stroke-width="${sw}%" />`;
-        } else if (annType === 'vertical') {
-          svgContent += `<line x1="${pts[0].x*100}%" y1="0" x2="${pts[0].x*100}%" y2="100%" stroke="${color}" stroke-width="${sw}%" />`;
-        } else {
-          svgContent += `<line x1="${pts[0].x*100}%" y1="${pts[0].y*100}%" x2="${pts[1].x*100}%" y2="${pts[1].y*100}%" stroke="${color}" stroke-width="${sw}%" />`;
-        }
+      } else if (annType === 'horizontal' && pts.length >= 1) {
+        // Reference horizontal line: full width at the point's y
+        svgContent += `<line x1="0" y1="${pts[0].y*100}%" x2="100%" y2="${pts[0].y*100}%" stroke="${color}" stroke-width="${sw}%" stroke-dasharray="1,0.6" />`;
+      } else if (annType === 'vertical' && pts.length >= 1) {
+        // Reference vertical line: full height at the point's x
+        svgContent += `<line x1="${pts[0].x*100}%" y1="0" x2="${pts[0].x*100}%" y2="100%" stroke="${color}" stroke-width="${sw}%" stroke-dasharray="1,0.6" />`;
+      } else if (annType === 'line' && pts.length >= 2) {
+        svgContent += `<line x1="${pts[0].x*100}%" y1="${pts[0].y*100}%" x2="${pts[1].x*100}%" y2="${pts[1].y*100}%" stroke="${color}" stroke-width="${sw}%" />`;
       } else if (annType === 'text' && pts.length >= 1) {
         const px = pts[0].x * 100;
         const py = pts[0].y * 100;
