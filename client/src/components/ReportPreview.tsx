@@ -326,22 +326,15 @@ function generateAsymmetryChartSVG(asymmetryData: AsymmetryItem[]): string {
     const leftW = (leftAbs / maxVal) * barAreaW;
     const rightW = (rightAbs / maxVal) * barAreaW;
     const absDiff = a.difference !== null ? Math.abs(a.difference) : null;
-    const isAsym = absDiff !== null && absDiff > 5;
-    const isMinor = absDiff !== null && absDiff > 2 && absDiff <= 5;
-    const diffColor = absDiff === null ? BRAND.gray : isAsym ? '#dc2626' : isMinor ? BRAND.orange : BRAND.green;
-    const symLabel = absDiff === null ? '\u2014' : isAsym ? 'Asymmetric' : isMinor ? 'Minor' : 'Symmetric';
+    const pct = a.percentDiff !== null && a.percentDiff !== undefined ? Math.abs(a.percentDiff) : null;
 
-    // Row background (highlight asymmetric metrics in light red)
-    const rowBg = isAsym ? '#fef2f2' : i % 2 === 0 ? BRAND.grayLight : 'white';
+    // Row background \u2014 alternating, no rating-based highlight
+    const rowBg = i % 2 === 0 ? BRAND.grayLight : 'white';
     out += `<rect x="0" y="${y}" width="${width}" height="${rowH}" fill="${rowBg}" />`;
-    if (isAsym) {
-      out += `<rect x="0" y="${y}" width="3" height="${rowH}" fill="#dc2626" />`;
-    }
 
-    // Metric label (bigger)
+    // Metric label
     const metricLabel = a.metricName.length > 22 ? a.metricName.substring(0, 21) + '\u2026' : a.metricName;
-    out += `<text x="10" y="${y + rowH / 2 - 6}" dominant-baseline="middle" font-size="11" font-family="Inter, sans-serif" fill="${BRAND.navy}" font-weight="600">${metricLabel}</text>`;
-    out += `<text x="10" y="${y + rowH / 2 + 11}" dominant-baseline="middle" font-size="9.5" font-family="Inter, sans-serif" fill="${diffColor}" font-weight="600">${symLabel}</text>`;
+    out += `<text x="10" y="${y + rowH / 2}" dominant-baseline="middle" font-size="11" font-family="Inter, sans-serif" fill="${BRAND.navy}" font-weight="600">${metricLabel}</text>`;
 
     // Left bar (extends from centerX to the left)
     const barH = 16;
@@ -353,21 +346,14 @@ function generateAsymmetryChartSVG(asymmetryData: AsymmetryItem[]): string {
     out += `<rect x="${centerX}" y="${barY}" width="${rightW}" height="${barH}" rx="3" fill="${BRAND.orange}" opacity="0.85" />`;
     out += `<text x="${centerX + rightW + 6}" y="${y + rowH / 2}" dominant-baseline="middle" font-size="11" font-family="Inter, sans-serif" fill="${BRAND.orange}" font-weight="700">${a.rightValue}\u00b0</text>`;
 
-    // Diff column on the right
+    // Diff column on the right \u2014 degrees on top, % below, neutral grey
     const diffText = absDiff !== null ? `${absDiff}\u00b0` : '\u2014';
-    out += `<rect x="${width - 50}" y="${y + rowH / 2 - 10}" width="44" height="20" rx="4" fill="${diffColor}" opacity="0.12" stroke="${diffColor}" stroke-width="0.8" />`;
-    out += `<text x="${width - 28}" y="${y + rowH / 2}" text-anchor="middle" dominant-baseline="middle" font-size="11" font-family="Inter, sans-serif" fill="${diffColor}" font-weight="700">${diffText}</text>`;
+    const pctText = pct !== null ? `${pct}%` : '';
+    out += `<text x="${width - 8}" y="${y + rowH / 2 - 6}" text-anchor="end" dominant-baseline="middle" font-size="11" font-family="Inter, sans-serif" fill="${BRAND.navy}" font-weight="700">${diffText}</text>`;
+    out += `<text x="${width - 8}" y="${y + rowH / 2 + 9}" text-anchor="end" dominant-baseline="middle" font-size="10" font-family="Inter, sans-serif" fill="${BRAND.gray}" font-weight="500">${pctText}</text>`;
   });
 
-  // Legend
-  const legendY = height - 10;
-  out += `<text x="${width / 2}" y="${legendY}" text-anchor="middle" font-size="10" font-family="Inter, sans-serif" fill="${BRAND.gray}">
-    <tspan fill="${BRAND.green}" font-weight="700">\u25cf</tspan> Symmetric \u22642\u00b0
-    <tspan fill="${BRAND.orange}" font-weight="700">\u25cf</tspan> Minor 2\u20135\u00b0
-    <tspan fill="#dc2626" font-weight="700">\u25cf</tspan> Asymmetric &gt;5\u00b0
-  </text>`;
-
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="auto" style="max-width:${width}px" xmlns="http://www.w3.org/2000/svg">${out}</svg>`;
+  return `<svg viewBox="0 0 ${width} ${height - footerH + 8}" width="100%" height="auto" style="max-width:${width}px" xmlns="http://www.w3.org/2000/svg">${out}</svg>`;
 }
 
 interface Props {
@@ -854,17 +840,16 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
         const renderTable = (items: AsymmetryItem[], title: string) => items.length === 0 ? '' : `
           <h3 style="font-family:Inter,sans-serif;font-size:10px;color:${BRAND.gray};text-transform:uppercase;letter-spacing:1.5px;margin:16px 0 8px;font-weight:600">${title}</h3>
           <table>
-            <thead><tr><th>Metric</th><th style="width:70px">Left</th><th style="width:70px">Right</th><th style="width:60px">Diff</th><th style="width:90px">Symmetry</th></tr></thead>
+            <thead><tr><th>Metric</th><th style="width:70px">Left</th><th style="width:70px">Right</th><th style="width:60px">Diff</th><th style="width:60px">Diff %</th></tr></thead>
             <tbody>${items.map((a: AsymmetryItem, i: number) => {
               const absDiff = a.difference !== null ? Math.abs(a.difference) : null;
-              const symLabel = absDiff !== null ? (absDiff <= 2 ? '\u2713 Symmetric' : absDiff <= 5 ? '\u26A0 Minor' : '\u26A0 Notable') : '\u2014';
-              const symColor = absDiff !== null ? (absDiff <= 2 ? BRAND.green : absDiff <= 5 ? BRAND.orange : '#dc2626') : BRAND.gray;
+              const pct = a.percentDiff !== null && a.percentDiff !== undefined ? Math.abs(a.percentDiff) : null;
               return `<tr class="${i % 2 === 0 ? 'even' : ''}">
                 <td style="font-weight:600;font-family:Inter,sans-serif">${a.metricName}</td>
                 <td class="center mono" style="color:${BRAND.blue};font-size:13px;font-weight:700">${a.leftValue !== null ? a.leftValue + '\u00b0' : '\u2014'}</td>
                 <td class="center mono" style="color:${BRAND.orange};font-size:13px;font-weight:700">${a.rightValue !== null ? a.rightValue + '\u00b0' : '\u2014'}</td>
                 <td class="center mono" style="font-size:11px;font-weight:600">${absDiff !== null ? absDiff + '\u00b0' : '\u2014'}</td>
-                <td class="center" style="color:${symColor};font-weight:700;font-size:9px;font-family:Inter,sans-serif">${symLabel}</td>
+                <td class="center mono" style="font-size:11px;font-weight:600;color:${BRAND.gray}">${pct !== null ? pct + '%' : '\u2014'}</td>
               </tr>`;
             }).join('')}</tbody>
           </table>`;
@@ -1540,7 +1525,7 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
                         <th className="text-center p-2.5 font-medium text-xs uppercase tracking-wide text-[#1A6B9C]">Left</th>
                         <th className="text-center p-2.5 font-medium text-xs uppercase tracking-wide text-[#E8862A]">Right</th>
                         <th className="text-center p-2.5 font-medium text-xs uppercase tracking-wide">Diff (\u00b0)</th>
-                        <th className="text-center p-2.5 font-medium text-xs uppercase tracking-wide">Symmetry</th>
+                        <th className="text-center p-2.5 font-medium text-xs uppercase tracking-wide">Diff %</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1550,17 +1535,10 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
                           <td className="p-2.5 text-center text-xs font-mono text-[#1A6B9C]">{a.leftValue !== null ? `${a.leftValue}\u00b0` : "\u2014"}</td>
                           <td className="p-2.5 text-center text-xs font-mono text-[#E8862A]">{a.rightValue !== null ? `${a.rightValue}\u00b0` : "\u2014"}</td>
                           <td className="p-2.5 text-center text-xs font-mono">
-                            {a.difference !== null ? (
-                              <span>{Math.abs(a.difference)}\u00b0</span>
-                            ) : "\u2014"}
+                            {a.difference !== null ? <span>{Math.abs(a.difference)}\u00b0</span> : "\u2014"}
                           </td>
-                          <td className="p-2.5 text-center text-xs font-mono font-semibold">
-                            {a.difference !== null ? (() => {
-                              const absDiff = Math.abs(a.difference!);
-                              const label = absDiff <= 2 ? "\u2713 Symmetric" : absDiff <= 5 ? "\u26A0 Minor" : "\u26A0 Notable";
-                              const cls = absDiff <= 2 ? "text-[#7A9A3B]" : absDiff <= 5 ? "text-[#E8862A]" : "text-red-600";
-                              return <span className={cls}>{label}</span>;
-                            })() : "\u2014"}
+                          <td className="p-2.5 text-center text-xs font-mono text-muted-foreground">
+                            {a.percentDiff !== null && a.percentDiff !== undefined ? `${Math.abs(a.percentDiff)}%` : "\u2014"}
                           </td>
                         </tr>
                       ))}
