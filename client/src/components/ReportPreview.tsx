@@ -945,39 +945,37 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   body { font-family: 'Source Sans 3', 'Source Sans Pro', -apple-system, sans-serif; font-size: 11px; color: ${BRAND.text}; line-height: 1.6; background: ${BRAND.grayLight}; }
   @page {
     size: A4;
-    margin: 28mm 18mm 20mm 18mm;
-    @top-left {
+    margin: 20mm 18mm 24mm 18mm;
+    @bottom-left {
       content: "TOTAL HEALTH";
       font-family: 'Inter', sans-serif;
       font-size: 9px;
       color: ${BRAND.navy};
       font-weight: 700;
       letter-spacing: 2.5px;
-      vertical-align: bottom;
-      padding-bottom: 8mm;
+      vertical-align: top;
+      padding-top: 8mm;
     }
-    @top-right {
+    @bottom-right {
       content: "RUNNING PERFORMANCE ASSESSMENT";
       font-family: 'Inter', sans-serif;
       font-size: 9px;
       color: ${BRAND.gray};
       font-weight: 500;
       letter-spacing: 2px;
-      vertical-align: bottom;
-      padding-bottom: 8mm;
+      vertical-align: top;
+      padding-top: 8mm;
     }
   }
-  /* Suppress header on cover page (first page) */
+  /* Suppress footer on cover page (first page) — it has its own bottom bar */
   @page :first {
     margin: 0;
-    @top-left { content: none; }
-    @top-right { content: none; }
+    @bottom-left { content: none; }
+    @bottom-right { content: none; }
   }
   @media print {
     .no-print { display: none !important; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
-    /* Hide the inline page-header — replaced by @page margin-box header that repeats on every page */
-    .page-header { display: none !important; }
   }
 
   /* ===== TYPOGRAPHY ===== */
