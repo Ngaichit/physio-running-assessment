@@ -56,12 +56,12 @@ export const assessments = mysqlTable("assessments", {
   backgroundNotes: text("backgroundNotes"),
 
   // InBody Results - uploaded PDF from equipment
-  inbodyFileUrl: text("inbodyFileUrl"), // S3 URL of uploaded InBody PDF
+  inbodyFileUrl: mediumtext("inbodyFileUrl"), // S3 URL or inline data: URL of InBody PDF (up to 16 MB)
   inbodyFileName: varchar("inbodyFileName", { length: 500 }),
   inbodyNotes: text("inbodyNotes"),
 
   // VO2 Master Results - uploaded PDF from equipment
-  vo2FileUrl: text("vo2FileUrl"), // S3 URL of uploaded VO2 Master PDF
+  vo2FileUrl: mediumtext("vo2FileUrl"), // S3 URL or inline data: URL of VO2 Master PDF (up to 16 MB)
   vo2FileName: varchar("vo2FileName", { length: 500 }),
   vo2Notes: text("vo2Notes"),
 

@@ -20,6 +20,11 @@ function normalizeKey(relKey: string): string {
   return relKey.replace(/^\/+/, "");
 }
 
+// MySQL MEDIUMTEXT cap is 16,777,215 bytes. The base64 form of the file is what we store,
+// so the raw file is capped at ~12 MB once you account for base64's 33% overhead and the
+// "data:<contentType>;base64," prefix.
+const INLINE_FILE_MAX_BYTES = 12 * 1024 * 1024;
+
 function toBase64DataUrl(data: Buffer | Uint8Array | string, contentType: string): string {
   const buf = typeof data === "string" ? Buffer.from(data) : Buffer.from(data);
   return `data:${contentType};base64,${buf.toString("base64")}`;
@@ -32,10 +37,17 @@ export async function storagePut(
 ): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
 
-  // Fallback: store as base64 data URL when S3 is not configured
+  // Fallback when S3 isn't configured: embed the file inline as a data: URL.
+  // The DB column is MEDIUMTEXT (16 MB) so files up to ~12 MB raw fit cleanly.
   if (!isS3Configured()) {
-    const url = toBase64DataUrl(data, contentType);
-    return { key, url };
+    const buf = typeof data === "string" ? Buffer.from(data) : Buffer.from(data);
+    if (buf.length > INLINE_FILE_MAX_BYTES) {
+      throw new Error(
+        `File is too large to store inline (${(buf.length / 1024 / 1024).toFixed(1)} MB; limit 12 MB). ` +
+        `Configure S3 (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, AWS_BUCKET) for larger files.`
+      );
+    }
+    return { key, url: toBase64DataUrl(buf, contentType) };
   }
 
   const client = getS3Client();

@@ -7,9 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Loader2, FileDown, Wand2, RefreshCw, Pencil, Eye, Save, Plus, Trash2 } from "lucide-react";
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-// PdfPageRenderer removed — VO2/InBody not shown in report preview
 import { toast } from "sonner";
-import { renderPdfToBase64Images } from "@/components/PdfPageRenderer";
+import PdfPageRenderer, { renderPdfToBase64Images } from "@/components/PdfPageRenderer";
 // Plain text renderer - replaces Streamdown to prevent markdown/code rendering
 // Flatten any value to a plain string. Handles cases where the AI returned
 // { title, content } or { text } objects instead of strings.
@@ -190,15 +189,33 @@ function drawAnnotationsOnCanvas(ctx: CanvasRenderingContext2D, w: number, h: nu
       ctx.font = `bold ${fontSize}px monospace`;
       const label = `${displayVal}\u00B0`;
       const tw = ctx.measureText(label).width;
-      ctx.fillStyle = "rgba(0,0,0,0.7)";
+      // Pin pill to left edge of image, vertically aligned with the vertex
+      const pillW = tw + 8;
+      const pillH = fontSize + 6;
+      const padding = Math.max(6, w / 80);
+      const pillX = padding;
+      const pillY = Math.max(2, Math.min(h - pillH - 2, vy - pillH / 2));
+      // Thin connector from pill right edge to vertex
+      const prevLineWidth = ctx.lineWidth;
+      ctx.lineWidth = Math.max(1, w / 600);
+      ctx.strokeStyle = ann.color || "#ef4444";
       ctx.beginPath();
-      ctx.roundRect(vx - tw/2 - 4, vy - fontSize - 6, tw + 8, fontSize + 6, 4);
+      ctx.moveTo(pillX + pillW, pillY + pillH / 2);
+      ctx.lineTo(vx, vy);
+      ctx.stroke();
+      ctx.lineWidth = prevLineWidth;
+      // Pill background
+      ctx.fillStyle = "rgba(0,0,0,0.75)";
+      ctx.beginPath();
+      ctx.roundRect(pillX, pillY, pillW, pillH, 4);
       ctx.fill();
+      // Pill text
       ctx.fillStyle = "#ffffff";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      ctx.fillText(label, vx, vy - 3);
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, pillX + 4, pillY + pillH / 2);
       ctx.textBaseline = "alphabetic";
+      ctx.textAlign = "start";
     } else if ((annType === "line" || annType === "horizontal" || annType === "vertical") && pts.length >= 2) {
       ctx.beginPath();
       if (annType === "horizontal") { ctx.moveTo(0, pts[0].y * h); ctx.lineTo(w, pts[0].y * h); }
@@ -605,28 +622,16 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
           const label = `${displayVal}\u00B0`;
           const vx = pts[1].x * 100;
           const vy = pts[1].y * 100;
-          // Offset label from vertex along bisector direction (away from arms)
-          const a1x = pts[0].x * 100, a1y = pts[0].y * 100;
-          const a2x = pts[2].x * 100, a2y = pts[2].y * 100;
-          // Unit vectors from vertex to each arm
-          const d1 = Math.hypot(a1x - vx, a1y - vy) || 1;
-          const d2 = Math.hypot(a2x - vx, a2y - vy) || 1;
-          const u1x = (a1x - vx) / d1, u1y = (a1y - vy) / d1;
-          const u2x = (a2x - vx) / d2, u2y = (a2y - vy) / d2;
-          // Bisector points AWAY from arms (negate sum)
-          let bx = -(u1x + u2x);
-          let by = -(u1y + u2y);
-          const bl = Math.hypot(bx, by) || 1;
-          bx /= bl; by /= bl;
-          const offset = 8;
-          let lx = vx + bx * offset;
-          let ly = vy + by * offset;
-          // Compact pill dimensions
+          // Compact pill dimensions (percent of viewBox)
           const boxW = label.length * 5.5 + 3;
           const boxH = 10;
-          // Clamp so the pill stays fully within viewBox
-          lx = Math.max(boxW / 2 + 1, Math.min(99 - boxW / 2, lx));
-          ly = Math.max(boxH / 2 + 1, Math.min(99 - boxH / 2, ly));
+          // Pin pill to the left edge, vertically aligned with the vertex
+          const leftMargin = 1.5;
+          const lx = leftMargin + boxW / 2;
+          const ly = Math.max(boxH / 2 + 0.5, Math.min(99.5 - boxH / 2, vy));
+          // Thin dashed connector from pill right edge to vertex
+          const pillRightX = leftMargin + boxW;
+          svgContent += `<line x1="${pillRightX}%" y1="${ly}%" x2="${vx}%" y2="${vy}%" stroke="${color}" stroke-width="0.2%" stroke-dasharray="0.6,0.6" />`;
           // Compact white rounded-rect pill with colored border
           svgContent += `<rect x="${lx - boxW / 2}%" y="${ly - boxH / 2}%" width="${boxW}%" height="${boxH}%" rx="2" ry="2" fill="white" fill-opacity="0.96" stroke="${color}" stroke-width="0.3%" />`;
           svgContent += `<text x="${lx}%" y="${ly}%" text-anchor="middle" dominant-baseline="central" fill="${color}" font-size="8%" font-weight="900" font-family="Arial, sans-serif">${label}</text>`;
@@ -1444,7 +1449,41 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
           </CardContent>
         </Card>
 
-        {/* VO2/InBody files are accessible from their own tabs — not shown in the report preview */}
+        {/* InBody Body Composition Report — included when uploaded */}
+        {formData?.inbodyFileUrl && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base text-[#1A2744]">InBody Body Composition Report</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PdfPageRenderer url={formData.inbodyFileUrl} maxPages={5} />
+              {formData.inbodyNotes && (
+                <div className="mt-3 text-sm">
+                  <p className="font-medium mb-1">Notes</p>
+                  <p className="whitespace-pre-wrap text-muted-foreground">{formData.inbodyNotes}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* VO2 Master Cardiorespiratory Report — included when uploaded */}
+        {formData?.vo2FileUrl && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base text-[#1A2744]">VO2 Master Cardiorespiratory Report</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PdfPageRenderer url={formData.vo2FileUrl} maxPages={5} />
+              {formData.vo2Notes && (
+                <div className="mt-3 text-sm">
+                  <p className="font-medium mb-1">Notes</p>
+                  <p className="whitespace-pre-wrap text-muted-foreground">{formData.vo2Notes}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Screenshots with annotations */}
         {screenshotsList && screenshotsList.length > 0 && (

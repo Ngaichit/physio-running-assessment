@@ -350,7 +350,8 @@ export const appRouter = router({
 
   pdf: router({
     toImages: protectedProcedure.input(z.object({
-      url: z.string().url(),
+      // Accept any string so data: URLs (inline-stored PDFs) pass validation.
+      url: z.string().min(1),
       dpi: z.number().optional().default(150),
       maxPages: z.number().optional().default(10),
     })).mutation(async ({ input }) => {
@@ -366,10 +367,17 @@ export const appRouter = router({
       const outPrefix = path.join(tmpDir, `pdfimg_${id}`);
 
       try {
-        // Download PDF
-        const resp = await fetch(input.url);
-        if (!resp.ok) throw new Error(`Failed to fetch PDF: ${resp.status}`);
-        const buffer = Buffer.from(await resp.arrayBuffer());
+        // Get PDF bytes — either decode a data: URL inline, or fetch from a real URL
+        let buffer: Buffer;
+        if (input.url.startsWith("data:")) {
+          const commaIdx = input.url.indexOf(",");
+          if (commaIdx < 0) throw new Error("Malformed data URL");
+          buffer = Buffer.from(input.url.slice(commaIdx + 1), "base64");
+        } else {
+          const resp = await fetch(input.url);
+          if (!resp.ok) throw new Error(`Failed to fetch PDF: ${resp.status}`);
+          buffer = Buffer.from(await resp.arrayBuffer());
+        }
         fs.writeFileSync(pdfPath, buffer);
 
         // Check if pdftoppm is available

@@ -363,14 +363,22 @@ export default function AssessmentEditor() {
                 currentFileUrl={formData.inbodyFileUrl}
                 currentFileName={formData.inbodyFileName}
                 onUpload={async (file) => {
-                  const base64 = await fileToBase64(file);
-                  const result = await uploadFile.mutateAsync({
-                    key: `inbody/${assessmentId}/${Date.now()}-${file.name}`,
-                    base64Data: base64,
-                    contentType: file.type,
-                  });
-                  updateField("inbodyFileUrl", result.url);
-                  updateField("inbodyFileName", file.name);
+                  try {
+                    const base64 = await fileToBase64(file);
+                    const result = await uploadFile.mutateAsync({
+                      key: `inbody/${assessmentId}/${Date.now()}-${file.name}`,
+                      base64Data: base64,
+                      contentType: file.type,
+                    });
+                    if (!result?.url) {
+                      throw new Error("Upload did not return a storage URL.");
+                    }
+                    updateField("inbodyFileUrl", result.url);
+                    updateField("inbodyFileName", file.name);
+                    toast.success("InBody PDF uploaded");
+                  } catch (err: any) {
+                    toast.error(err?.message || "InBody upload failed");
+                  }
                 }}
                 onRemove={() => {
                   updateField("inbodyFileUrl", null);
@@ -397,14 +405,22 @@ export default function AssessmentEditor() {
                 currentFileUrl={formData.vo2FileUrl}
                 currentFileName={formData.vo2FileName}
                 onUpload={async (file) => {
-                  const base64 = await fileToBase64(file);
-                  const result = await uploadFile.mutateAsync({
-                    key: `vo2/${assessmentId}/${Date.now()}-${file.name}`,
-                    base64Data: base64,
-                    contentType: file.type,
-                  });
-                  updateField("vo2FileUrl", result.url);
-                  updateField("vo2FileName", file.name);
+                  try {
+                    const base64 = await fileToBase64(file);
+                    const result = await uploadFile.mutateAsync({
+                      key: `vo2/${assessmentId}/${Date.now()}-${file.name}`,
+                      base64Data: base64,
+                      contentType: file.type,
+                    });
+                    if (!result?.url) {
+                      throw new Error("Upload did not return a storage URL.");
+                    }
+                    updateField("vo2FileUrl", result.url);
+                    updateField("vo2FileName", file.name);
+                    toast.success("VO2 PDF uploaded");
+                  } catch (err: any) {
+                    toast.error(err?.message || "VO2 upload failed");
+                  }
                 }}
                 onRemove={() => {
                   updateField("vo2FileUrl", null);
