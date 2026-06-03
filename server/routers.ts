@@ -592,7 +592,8 @@ OUTPUT FORMAT — STRICT JSON SCHEMA:
 - background: plain text string (single paragraph of prose)
 - impressionFromTesting: plain text string (multi-paragraph prose)
 - summary: plain text string (1-2 paragraphs)
-- asymmetryAnalysis: plain text string
+- metricsAnalysis: plain text string — concise comment ABOUT THE 10-METRIC TABLE ONLY (patterns across metrics, priorities, deviations from optimal). 2-4 short sentences. DO NOT discuss left/right asymmetry here — that has its own field.
+- asymmetryAnalysis: plain text string — LEFT vs RIGHT comparison ONLY (which metrics show side bias, clinical implications). 2-4 short sentences. DO NOT repeat the overall metric analysis here.
 - problems: array of objects, each with { title: string, description: string, findings: string[] }
 - management: object with { gaitRelearning, mobilityExercises, strengthExercises, runningProgramming } — each is a plain text string with one item per line. Combine all running cues AND gait relearning drills into a SINGLE 'gaitRelearning' field (do NOT output a separate runningCues field).
 - metricsRatings: array (server overwrites this)
@@ -666,9 +667,13 @@ IMPORTANT FORMATTING RULES:
                   additionalProperties: false
                 },
                 summary: { type: "string", description: "Brief overall summary" },
+                metricsAnalysis: {
+                  type: "string",
+                  description: "Concise comment about the 10-metric assessment table ONLY. 2-4 short sentences highlighting patterns across metrics, priorities, and notable deviations from optimal ranges. DO NOT discuss left/right asymmetry — that belongs in asymmetryAnalysis."
+                },
                 asymmetryAnalysis: {
                   type: "string",
-                  description: "Analysis of left vs right side asymmetries. Discuss which metrics show significant differences, clinical implications, and how asymmetries relate to injury risk or performance. If no asymmetry data available, state that bilateral comparison was not performed."
+                  description: "LEFT vs RIGHT comparison ONLY. 2-4 short sentences naming which metrics show side bias and the clinical implications. DO NOT repeat the overall metric analysis. If no asymmetry data, state that bilateral comparison was not performed."
                 },
                 metricsRatings: {
                   type: "array",
@@ -687,7 +692,7 @@ IMPORTANT FORMATTING RULES:
                   }
                 }
               },
-              required: ["background", "impressionFromTesting", "problems", "management", "summary", "metricsRatings", "asymmetryAnalysis"],
+              required: ["background", "impressionFromTesting", "problems", "management", "summary", "metricsRatings", "metricsAnalysis", "asymmetryAnalysis"],
               additionalProperties: false
             }
           }
