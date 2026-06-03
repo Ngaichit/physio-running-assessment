@@ -592,8 +592,8 @@ OUTPUT FORMAT — STRICT JSON SCHEMA:
 - background: plain text string (single paragraph of prose)
 - impressionFromTesting: plain text string (multi-paragraph prose)
 - summary: plain text string (1-2 paragraphs)
-- metricsAnalysis: plain text string — concise comment ABOUT THE 10-METRIC TABLE ONLY (patterns across metrics, priorities, deviations from optimal). 2-4 short sentences. DO NOT discuss left/right asymmetry here — that has its own field.
-- asymmetryAnalysis: plain text string — LEFT vs RIGHT comparison ONLY (which metrics show side bias, clinical implications). 2-4 short sentences. DO NOT repeat the overall metric analysis here.
+- metricsAnalysis: plain text string — comment on the 10-METRIC TABLE only. Overall pattern, which metrics are most off-target, what to prioritise. 2-4 short sentences. DO NOT mention left vs right comparison. MUST be different content from asymmetryAnalysis.
+- asymmetryAnalysis: plain text string — comment on LEFT vs RIGHT ONLY. Which metrics show side bias, magnitude, clinical implication. 2-4 short sentences. DO NOT discuss the overall metric pattern. MUST be different content from metricsAnalysis.
 - problems: array of objects, each with { title: string, description: string, findings: string[] }
 - management: object with { gaitRelearning, mobilityExercises, strengthExercises, runningProgramming } — each is a plain text string with one item per line. Combine all running cues AND gait relearning drills into a SINGLE 'gaitRelearning' field (do NOT output a separate runningCues field).
 - metricsRatings: array (server overwrites this)
@@ -669,11 +669,11 @@ IMPORTANT FORMATTING RULES:
                 summary: { type: "string", description: "Brief overall summary" },
                 metricsAnalysis: {
                   type: "string",
-                  description: "Concise comment about the 10-metric assessment table ONLY. 2-4 short sentences highlighting patterns across metrics, priorities, and notable deviations from optimal ranges. DO NOT discuss left/right asymmetry — that belongs in asymmetryAnalysis."
+                  description: "Comment on the 10-METRIC TABLE — overall pattern across the metrics, which are most off-target, what to prioritise. 2-4 short sentences. MUST be different content from asymmetryAnalysis. Example: 'Overstride and contralateral pelvic drop are the dominant deviations, both elevated and consistent with the reported anterior knee pain. Cadence at 162 spm sits below the optimal 170-180 range, compounding ground contact time. Push-off mechanics are within range and not a priority.' DO NOT mention left vs right comparison here."
                 },
                 asymmetryAnalysis: {
                   type: "string",
-                  description: "LEFT vs RIGHT comparison ONLY. 2-4 short sentences naming which metrics show side bias and the clinical implications. DO NOT repeat the overall metric analysis. If no asymmetry data, state that bilateral comparison was not performed."
+                  description: "Comment on LEFT vs RIGHT comparison ONLY — which metrics show side bias, magnitude, clinical implication. 2-4 short sentences. MUST be different content from metricsAnalysis. Example: 'Pelvic drop is markedly larger on the right (8° vs 3°), suggesting weaker right hip abductors — corroborated by the 18% deficit in VALD hip ABD testing. Knee flexion at loading is symmetric. Step width asymmetry is within normal range.' DO NOT discuss the overall metric pattern here. If no asymmetry data, write: 'Bilateral comparison was not performed.'"
                 },
                 metricsRatings: {
                   type: "array",
@@ -723,7 +723,7 @@ IMPORTANT FORMATTING RULES:
         }
         return v;
       };
-      const stringFields = ["background", "impressionFromTesting", "summary", "asymmetryAnalysis"] as const;
+      const stringFields = ["background", "impressionFromTesting", "summary", "metricsAnalysis", "asymmetryAnalysis"] as const;
       for (const f of stringFields) {
         if (parsedReport[f] != null) parsedReport[f] = flattenToString(parsedReport[f]);
       }
@@ -1076,10 +1076,11 @@ function buildReportPrompt(patient: any, assessment: any, annotatedScreenshots: 
         prompt += `- ${a.metricName}: Right=${a.rightValue}° (left side not measured)\n`;
       }
     }
-    prompt += `\nPlease include a detailed asymmetry analysis in the 'asymmetryAnalysis' field. Discuss clinical implications of any significant asymmetries (>10% difference), relate them to injury risk, and suggest corrective strategies.`;
+    prompt += `\n\nThe 'asymmetryAnalysis' field must focus on LEFT vs RIGHT differences only — name which metrics show side bias (>10% diff is significant), link to injury risk, suggest corrective strategies. Do NOT discuss overall metric patterns here — that goes in 'metricsAnalysis'.`;
   } else {
-    prompt += `\nNo bilateral comparison data is available. Note this in the asymmetryAnalysis field.`;
+    prompt += `\nNo bilateral comparison data is available. Write 'Bilateral comparison was not performed.' in the asymmetryAnalysis field.`;
   }
+  prompt += `\n\nThe 'metricsAnalysis' field must focus on the OVERALL 10-METRIC TABLE — pattern across the metrics, which are most off-target, what to prioritise. Do NOT mention left vs right comparison here — that has its own field.`;
 
   prompt += `\nPlease synthesize ALL the above information into a coherent, professional running assessment report. Use the physio's clinical notes as the primary guide for the impression and management sections, but enhance them with proper clinical language and structure. Make the report read as if written by an experienced sports physiotherapist.`;
 
