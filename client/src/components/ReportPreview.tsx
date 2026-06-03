@@ -31,6 +31,36 @@ function PlainText({ children }: { children: unknown }) {
   return <p className="text-sm whitespace-pre-wrap leading-relaxed">{asText(children)}</p>;
 }
 
+// Split a newline-separated string into clean bullet items.
+// Strips leading -, *, •, numbering (1., 1)) so the AI's formatting noise
+// doesn't surface in the UI.
+function splitBullets(s: unknown): string[] {
+  return asText(s)
+    .split(/\r?\n/)
+    .map(line => line.replace(/^\s*[-*•·]\s*|^\s*\d+[.)]\s*/, "").trim())
+    .filter(Boolean);
+}
+
+function BulletList({ value }: { value: unknown }) {
+  const items = splitBullets(value);
+  if (items.length === 0) return null;
+  return (
+    <ul className="text-sm leading-relaxed list-disc pl-5 space-y-1 text-muted-foreground">
+      {items.map((line, i) => <li key={i}>{line}</li>)}
+    </ul>
+  );
+}
+
+// Same logic for the printed HTML output.
+function bulletListHtml(value: unknown): string {
+  const items = asText(value)
+    .split(/\r?\n/)
+    .map((line: string) => line.replace(/^\s*[-*•·]\s*|^\s*\d+[.)]\s*/, "").trim())
+    .filter(Boolean);
+  if (items.length === 0) return "";
+  return `<ul style="margin:10px 2px 0;padding-left:18px;font-size:10.5px;color:#333;line-height:1.55;list-style-type:disc">${items.map(i => `<li style="margin:2px 0">${i}</li>`).join("")}</ul>`;
+}
+
 const LOGO_HORIZONTAL = "/logo-horizontal.png";
 
 // ======================== BRAND COLORS ========================
@@ -846,7 +876,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
               }).join('')}
             </tbody>
           </table>
-          ${displayReport.metricsAnalysis ? `<p style="margin:10px 2px 0;font-size:10.5px;font-style:italic;color:${BRAND.text};white-space:pre-wrap;line-height:1.55">${asText(displayReport.metricsAnalysis)}</p>` : ''}
+          ${displayReport.metricsAnalysis ? bulletListHtml(displayReport.metricsAnalysis) : ''}
         </div>` : '';
 
       // Asymmetry section HTML \u2014 chart only, table removed per design decision
@@ -854,7 +884,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
         ? `<div class="section">
             <h2>Left vs Right Asymmetry</h2>
             <div style="text-align:center;margin:8px 0">${asymSvg}</div>
-            ${displayReport.asymmetryAnalysis ? `<p style="margin:10px 2px 0;font-size:10.5px;font-style:italic;color:${BRAND.text};white-space:pre-wrap;line-height:1.55">${asText(displayReport.asymmetryAnalysis)}</p>` : ''}
+            ${displayReport.asymmetryAnalysis ? bulletListHtml(displayReport.asymmetryAnalysis) : ''}
           </div>`
         : '';
 
@@ -1050,7 +1080,14 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   }
 
   /* ===== SECTIONS ===== */
-  .section { margin-bottom: 28px; page-break-inside: avoid; }
+  .section { margin-bottom: 28px; page-break-inside: avoid; break-inside: avoid; }
+  /* Never break right after a heading — keep at least the first line of content with it */
+  h1, h2, h3, h4 { break-after: avoid-page; page-break-after: avoid; }
+  /* Don't orphan content right above a heading either */
+  .section > *:first-child { break-after: avoid-page; page-break-after: avoid; }
+  /* Tables and table parts shouldn't split a row across pages */
+  table, tr, thead, tbody { break-inside: avoid; page-break-inside: avoid; }
+  thead { display: table-header-group; }
   .section h2 {
     font-size: 16px; font-weight: 700; color: ${BRAND.navy};
     padding-bottom: 6px; margin-bottom: 16px;
@@ -1213,8 +1250,22 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
 
 <!-- Page header is rendered by @page margin boxes (repeats on every printed page) -->
 
+<!-- InBody Body Composition Report — directly after cover page -->
+${inbodyImages.length > 0 ? `
+<div class="section" style="page-break-before:always">
+  <h2>InBody Body Composition Report</h2>
+  ${inbodyImages.map((img: string, i: number) => `<div style="margin-bottom:12px;text-align:center${i > 0 ? ';page-break-before:always' : ''}"><img src="${img}" style="max-width:100%;height:auto;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.08)" alt="InBody page ${i + 1}" /></div>`).join('')}
+</div>` : ''}
+
+<!-- VO2 Master Cardiorespiratory Report — directly after InBody -->
+${vo2Images.length > 0 ? `
+<div class="section" style="page-break-before:always">
+  <h2>VO2 Master Cardiorespiratory Report</h2>
+  ${vo2Images.map((img: string, i: number) => `<div style="margin-bottom:12px;text-align:center${i > 0 ? ';page-break-before:always' : ''}"><img src="${img}" style="max-width:100%;height:auto;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.08)" alt="VO2 page ${i + 1}" /></div>`).join('')}
+</div>` : ''}
+
 <!-- How to Use This Report -->
-<div class="section">
+<div class="section"${(inbodyImages.length > 0 || vo2Images.length > 0) ? ` style="page-break-before:always"` : ''}>
   <h2>How to Use This Report</h2>
   <p style="font-size:11px;line-height:1.7;color:${BRAND.text}">Running analysis evaluates how load is distributed throughout the body during movement. Every individual has a unique running pattern, and there is no absolute &ldquo;right&rdquo; or &ldquo;wrong&rdquo; way to run. The purpose of this assessment is to identify individual strengths, potential weaknesses, and areas for improvement to enhance running economy while reducing injury risk. The data and charts provided serve as objective reference points and checkpoints, allowing comparison and progress tracking following training or intervention. While textbook running mechanics provide useful guidance, there is no single gold-standard gait pattern that every runner must follow.</p>
 </div>
@@ -1294,18 +1345,6 @@ ${formData?.followUpMonths && formData?.assessmentDate ? (() => {
     </div>
   </div>`;
 })() : ''}
-
-${inbodyImages.length > 0 ? `
-<div class="section" style="page-break-before:always">
-  <h2>InBody Body Composition Report</h2>
-  ${inbodyImages.map((img: string, i: number) => `<div style="margin-bottom:12px;text-align:center${i > 0 ? ';page-break-before:always' : ''}"><img src="${img}" style="max-width:100%;height:auto;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.08)" alt="InBody page ${i + 1}" /></div>`).join('')}
-</div>` : ''}
-
-${vo2Images.length > 0 ? `
-<div class="section" style="page-break-before:always">
-  <h2>VO2 Master Cardiorespiratory Report</h2>
-  ${vo2Images.map((img: string, i: number) => `<div style="margin-bottom:12px;text-align:center${i > 0 ? ';page-break-before:always' : ''}"><img src="${img}" style="max-width:100%;height:auto;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.08)" alt="VO2 page ${i + 1}" /></div>`).join('')}
-</div>` : ''}
 
 <!-- Practitioner Sign-off -->
 ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:3px solid ${BRAND.navy}">
@@ -1598,15 +1637,11 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
                   <Textarea
                     value={asText(editingReport?.metricsAnalysis)}
                     onChange={e => updateField("metricsAnalysis", e.target.value)}
-                    rows={3}
+                    rows={4}
                     className="text-sm"
-                    placeholder="Comment on the metrics (key findings, patterns, priorities)\u2026"
+                    placeholder="One bullet point per line \u2014 patterns, priorities, key deviations"
                   />
-                ) : displayReport?.metricsAnalysis ? (
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground italic">
-                    {asText(displayReport.metricsAnalysis)}
-                  </p>
-                ) : null}
+                ) : <BulletList value={displayReport?.metricsAnalysis} />}
               </div>
             </CardContent>
           </Card>
@@ -1626,15 +1661,11 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
                   <Textarea
                     value={asText(editingReport?.asymmetryAnalysis)}
                     onChange={e => updateField("asymmetryAnalysis", e.target.value)}
-                    rows={3}
+                    rows={4}
                     className="text-sm"
-                    placeholder="Comment on the asymmetry (clinical significance, side bias, drivers)\u2026"
+                    placeholder="One bullet point per line \u2014 side bias, clinical implications"
                   />
-                ) : displayReport?.asymmetryAnalysis ? (
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground italic">
-                    {asText(displayReport.asymmetryAnalysis)}
-                  </p>
-                ) : null}
+                ) : <BulletList value={displayReport?.asymmetryAnalysis} />}
               </div>
             </CardContent>
           </Card>

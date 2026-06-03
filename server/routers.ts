@@ -592,8 +592,8 @@ OUTPUT FORMAT — STRICT JSON SCHEMA:
 - background: plain text string (single paragraph of prose)
 - impressionFromTesting: plain text string (multi-paragraph prose)
 - summary: plain text string (1-2 paragraphs)
-- metricsAnalysis: plain text string — comment on the 10-METRIC TABLE only. Overall pattern, which metrics are most off-target, what to prioritise. 2-4 short sentences. DO NOT mention left vs right comparison. MUST be different content from asymmetryAnalysis.
-- asymmetryAnalysis: plain text string — comment on LEFT vs RIGHT ONLY. Which metrics show side bias, magnitude, clinical implication. 2-4 short sentences. DO NOT discuss the overall metric pattern. MUST be different content from metricsAnalysis.
+- metricsAnalysis: plain text string in POINT FORM (3-4 short bullet lines, one per line, separated by newlines). Comment on the 10-METRIC TABLE only — overall pattern, biggest deviations, top priorities. Each line ≤ 15 words. DO NOT mention left vs right. DO NOT write prose paragraphs.
+- asymmetryAnalysis: plain text string in POINT FORM (3-4 short bullet lines, one per line, separated by newlines). Comment on LEFT vs RIGHT ONLY — which metrics show side bias, magnitude, clinical implication. Each line ≤ 15 words. DO NOT discuss overall metric pattern. DO NOT write prose paragraphs.
 - problems: array of objects, each with { title: string, description: string, findings: string[] }
 - management: object with { gaitRelearning, mobilityExercises, strengthExercises, runningProgramming } — each is a plain text string with one item per line. Combine all running cues AND gait relearning drills into a SINGLE 'gaitRelearning' field (do NOT output a separate runningCues field).
 - metricsRatings: array (server overwrites this)
@@ -669,11 +669,11 @@ IMPORTANT FORMATTING RULES:
                 summary: { type: "string", description: "Brief overall summary" },
                 metricsAnalysis: {
                   type: "string",
-                  description: "Comment on the 10-METRIC TABLE — overall pattern across the metrics, which are most off-target, what to prioritise. 2-4 short sentences. MUST be different content from asymmetryAnalysis. Example: 'Overstride and contralateral pelvic drop are the dominant deviations, both elevated and consistent with the reported anterior knee pain. Cadence at 162 spm sits below the optimal 170-180 range, compounding ground contact time. Push-off mechanics are within range and not a priority.' DO NOT mention left vs right comparison here."
+                  description: "POINT FORM. 3-4 short bullet lines, one per line, separated by newlines. Each line ≤ 15 words. Comment on the 10-METRIC TABLE only. Example (3 lines):\nOverstride 15° + contralateral pelvic drop 8° dominant deviations\nCadence 162 spm below 170-180 target, ↑ ground contact time\nPush-off mechanics within range, not a priority\nDO NOT mention L vs R here. DO NOT write prose paragraphs. MUST differ from asymmetryAnalysis."
                 },
                 asymmetryAnalysis: {
                   type: "string",
-                  description: "Comment on LEFT vs RIGHT comparison ONLY — which metrics show side bias, magnitude, clinical implication. 2-4 short sentences. MUST be different content from metricsAnalysis. Example: 'Pelvic drop is markedly larger on the right (8° vs 3°), suggesting weaker right hip abductors — corroborated by the 18% deficit in VALD hip ABD testing. Knee flexion at loading is symmetric. Step width asymmetry is within normal range.' DO NOT discuss the overall metric pattern here. If no asymmetry data, write: 'Bilateral comparison was not performed.'"
+                  description: "POINT FORM. 3-4 short bullet lines, one per line, separated by newlines. Each line ≤ 15 words. Comment on LEFT vs RIGHT only. Example (3 lines):\nPelvic drop R 8° vs L 3° → weak R hip ABD (corroborates VALD)\nKnee flexion at loading symmetric L/R\nStep width asymmetry within normal range\nDO NOT discuss overall pattern. DO NOT write prose. MUST differ from metricsAnalysis. If no data: write 'Bilateral comparison was not performed.'"
                 },
                 metricsRatings: {
                   type: "array",
