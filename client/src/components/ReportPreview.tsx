@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Loader2, FileDown, Wand2, RefreshCw, Pencil, Eye, Save, Plus, Trash2 } from "lucide-react";
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import PdfPageRenderer, { renderPdfToBase64Images } from "@/components/PdfPageRenderer";
+import PdfPageRenderer from "@/components/PdfPageRenderer";
 // Plain text renderer - replaces Streamdown to prevent markdown/code rendering
 // Flatten any value to a plain string. Handles cases where the AI returned
 // { title, content } or { text } objects instead of strings.
@@ -216,11 +216,28 @@ function drawAnnotationsOnCanvas(ctx: CanvasRenderingContext2D, w: number, h: nu
       ctx.fillText(label, pillX + 4, pillY + pillH / 2);
       ctx.textBaseline = "alphabetic";
       ctx.textAlign = "start";
-    } else if ((annType === "line" || annType === "horizontal" || annType === "vertical") && pts.length >= 2) {
+    } else if (annType === "horizontal" && pts.length >= 1) {
+      // Reference horizontal line: full-width dashed line at the point's y
+      ctx.save();
+      ctx.setLineDash([Math.max(4, w / 200), Math.max(3, w / 280)]);
       ctx.beginPath();
-      if (annType === "horizontal") { ctx.moveTo(0, pts[0].y * h); ctx.lineTo(w, pts[0].y * h); }
-      else if (annType === "vertical") { ctx.moveTo(pts[0].x * w, 0); ctx.lineTo(pts[0].x * w, h); }
-      else { ctx.moveTo(pts[0].x * w, pts[0].y * h); ctx.lineTo(pts[1].x * w, pts[1].y * h); }
+      ctx.moveTo(0, pts[0].y * h);
+      ctx.lineTo(w, pts[0].y * h);
+      ctx.stroke();
+      ctx.restore();
+    } else if (annType === "vertical" && pts.length >= 1) {
+      // Reference vertical line: full-height dashed line at the point's x
+      ctx.save();
+      ctx.setLineDash([Math.max(4, w / 200), Math.max(3, w / 280)]);
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x * w, 0);
+      ctx.lineTo(pts[0].x * w, h);
+      ctx.stroke();
+      ctx.restore();
+    } else if (annType === "line" && pts.length >= 2) {
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x * w, pts[0].y * h);
+      ctx.lineTo(pts[1].x * w, pts[1].y * h);
       ctx.stroke();
     } else if (annType === "text" && pts.length >= 1) {
       const px = pts[0].x * w;
@@ -471,6 +488,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
     },
     onError: (err) => toast.error(err.message),
   });
+  const pdfToImages = trpc.pdf.toImages.useMutation();
 
   const report = useMemo<ReportData | null>(() => {
     if (formData?.reportJson) {
@@ -689,21 +707,30 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
       // Convert logo to base64
       const logoBase64 = await imageToBase64(LOGO_HORIZONTAL);
 
-      // Render InBody and VO2 PDF pages to images
+      // Render InBody and VO2 PDF pages to images via typed tRPC mutation.
+      // Surface failures with a toast so they don't silently drop from the report.
       let inbodyImages: string[] = [];
       let vo2Images: string[] = [];
       if (formData?.inbodyFileUrl) {
         try {
-          inbodyImages = await renderPdfToBase64Images(formData.inbodyFileUrl, 2, 5);
-        } catch {
-          console.error("Failed to render InBody PDF pages");
+          const result = await pdfToImages.mutateAsync({ url: formData.inbodyFileUrl, dpi: 150, maxPages: 5 });
+          inbodyImages = result.images;
+          if (inbodyImages.length === 0) {
+            toast.warning("InBody PDF rendered 0 pages — check the uploaded file.");
+          }
+        } catch (err: any) {
+          toast.error(`InBody PDF render failed: ${err?.message || "unknown error"}`);
         }
       }
       if (formData?.vo2FileUrl) {
         try {
-          vo2Images = await renderPdfToBase64Images(formData.vo2FileUrl, 2, 5);
-        } catch {
-          console.error("Failed to render VO2 PDF pages");
+          const result = await pdfToImages.mutateAsync({ url: formData.vo2FileUrl, dpi: 150, maxPages: 5 });
+          vo2Images = result.images;
+          if (vo2Images.length === 0) {
+            toast.warning("VO2 PDF rendered 0 pages — check the uploaded file.");
+          }
+        } catch (err: any) {
+          toast.error(`VO2 PDF render failed: ${err?.message || "unknown error"}`);
         }
       }
 
@@ -838,33 +865,13 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
           </table>
         </div>` : '';
 
-      // Asymmetry table HTML
-      const asymmetryHtml = displayReport?.asymmetryData && displayReport.asymmetryData.length > 0 ? (() => {
-        const sideItems = displayReport.asymmetryData.filter((a: AsymmetryItem) => a.view === 'Side' || (!a.view && !['Pelvic Drop','Step Width','Knee Frontal Plane Angle','Rearfoot Eversion','Trunk Rotation Asym','Hip Rotation (Mid-Swing)','Push-Off Alignment'].includes(a.metricName)));
-        const backItems = displayReport.asymmetryData.filter((a: AsymmetryItem) => a.view === 'Back' || (!a.view && ['Pelvic Drop','Step Width','Knee Frontal Plane Angle','Rearfoot Eversion','Trunk Rotation Asym','Hip Rotation (Mid-Swing)','Push-Off Alignment'].includes(a.metricName)));
-        const renderTable = (items: AsymmetryItem[], title: string) => items.length === 0 ? '' : `
-          <h3 style="font-family:Inter,sans-serif;font-size:10px;color:${BRAND.gray};text-transform:uppercase;letter-spacing:1.5px;margin:16px 0 8px;font-weight:600">${title}</h3>
-          <table>
-            <thead><tr><th>Metric</th><th style="width:70px">Left</th><th style="width:70px">Right</th><th style="width:60px">Diff</th><th style="width:60px">Diff %</th></tr></thead>
-            <tbody>${items.map((a: AsymmetryItem, i: number) => {
-              const absDiff = a.difference !== null ? Math.abs(a.difference) : null;
-              const pct = a.percentDiff !== null && a.percentDiff !== undefined ? Math.abs(a.percentDiff) : null;
-              return `<tr class="${i % 2 === 0 ? 'even' : ''}">
-                <td style="font-weight:600;font-family:Inter,sans-serif">${a.metricName}</td>
-                <td class="center mono" style="color:${BRAND.blue};font-size:13px;font-weight:700">${a.leftValue !== null ? a.leftValue + '\u00b0' : '\u2014'}</td>
-                <td class="center mono" style="color:${BRAND.orange};font-size:13px;font-weight:700">${a.rightValue !== null ? a.rightValue + '\u00b0' : '\u2014'}</td>
-                <td class="center mono" style="font-size:11px;font-weight:600">${absDiff !== null ? absDiff + '\u00b0' : '\u2014'}</td>
-                <td class="center mono" style="font-size:11px;font-weight:600;color:${BRAND.gray}">${pct !== null ? pct + '%' : '\u2014'}</td>
-              </tr>`;
-            }).join('')}</tbody>
-          </table>`;
-        return `<div class="section">
-          <h2>Left vs Right Asymmetry</h2>
-          ${asymSvg ? `<div style="text-align:center;margin:8px 0 24px">${asymSvg}</div>` : ''}
-          ${renderTable(sideItems, 'Side View Metrics (M01\u2013M05)')}
-          ${renderTable(backItems, 'Back View Metrics (M06\u2013M10)')}
-        </div>`;
-      })() : '';
+      // Asymmetry section HTML \u2014 chart only, table removed per design decision
+      const asymmetryHtml = displayReport?.asymmetryData && displayReport.asymmetryData.length > 0 && asymSvg
+        ? `<div class="section">
+            <h2>Left vs Right Asymmetry</h2>
+            <div style="text-align:center;margin:8px 0">${asymSvg}</div>
+          </div>`
+        : '';
 
       // Dynamo strength table HTML
       const dynamoData = displayReport?.dynamoTests || dynamoTestsList || [];
@@ -1571,61 +1578,18 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
           </Card>
         )}
 
-        {/* Left/Right Asymmetry Analysis */}
-        {(displayReport?.asymmetryData && displayReport.asymmetryData.length > 0) && (() => {
-          const sideItems = displayReport.asymmetryData.filter((a: AsymmetryItem) => a.view === "Side" || (!a.view && !["Pelvic Drop","Step Width","Knee Frontal Plane Angle","Rearfoot Eversion","Trunk Rotation Asym","Hip Rotation (Mid-Swing)","Push-Off Alignment"].includes(a.metricName)));
-          const backItems = displayReport.asymmetryData.filter((a: AsymmetryItem) => a.view === "Back" || (!a.view && ["Pelvic Drop","Step Width","Knee Frontal Plane Angle","Rearfoot Eversion","Trunk Rotation Asym","Hip Rotation (Mid-Swing)","Push-Off Alignment"].includes(a.metricName)));
-          const renderAsymSection = (items: AsymmetryItem[], title: string) => {
-            if (items.length === 0) return null;
-            return (
-              <div className="space-y-1">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{title}</h4>
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-[#1A2744] text-white">
-                        <th className="text-left p-2.5 font-medium text-xs uppercase tracking-wide">Metric</th>
-                        <th className="text-center p-2.5 font-medium text-xs uppercase tracking-wide text-[#1A6B9C]">Left</th>
-                        <th className="text-center p-2.5 font-medium text-xs uppercase tracking-wide text-[#E8862A]">Right</th>
-                        <th className="text-center p-2.5 font-medium text-xs uppercase tracking-wide">Diff (\u00b0)</th>
-                        <th className="text-center p-2.5 font-medium text-xs uppercase tracking-wide">Diff %</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((a: AsymmetryItem, i: number) => (
-                        <tr key={i} className="border-b last:border-0 even:bg-muted/30">
-                          <td className="p-2.5 font-medium text-xs">{a.metricName}</td>
-                          <td className="p-2.5 text-center text-xs font-mono text-[#1A6B9C]">{a.leftValue !== null ? `${a.leftValue}\u00b0` : "\u2014"}</td>
-                          <td className="p-2.5 text-center text-xs font-mono text-[#E8862A]">{a.rightValue !== null ? `${a.rightValue}\u00b0` : "\u2014"}</td>
-                          <td className="p-2.5 text-center text-xs font-mono">
-                            {a.difference !== null ? <span>{Math.abs(a.difference)}\u00b0</span> : "\u2014"}
-                          </td>
-                          <td className="p-2.5 text-center text-xs font-mono text-muted-foreground">
-                            {a.percentDiff !== null && a.percentDiff !== undefined ? `${Math.abs(a.percentDiff)}%` : "\u2014"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          };
-          return (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base text-[#1A2744]">Left vs Right Asymmetry</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {displayReport.asymmetryData.some((a: AsymmetryItem) => a.leftValue !== null && a.rightValue !== null) && (
-                  <div className="border rounded-lg p-3 bg-white overflow-x-auto" dangerouslySetInnerHTML={{ __html: generateAsymmetryChartSVG(displayReport.asymmetryData) }} />
-                )}
-                {renderAsymSection(sideItems, "Side View Metrics (M01\u2013M05)")}
-                {renderAsymSection(backItems, "Back View Metrics (M06\u2013M10)")}
-              </CardContent>
-            </Card>
-          );
-        })()}
+        {/* Left/Right Asymmetry \u2014 chart only (table removed per design decision) */}
+        {displayReport?.asymmetryData && displayReport.asymmetryData.length > 0 &&
+          displayReport.asymmetryData.some((a: AsymmetryItem) => a.leftValue !== null && a.rightValue !== null) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base text-[#1A2744]">Left vs Right Asymmetry</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-lg p-3 bg-white overflow-x-auto" dangerouslySetInnerHTML={{ __html: generateAsymmetryChartSVG(displayReport.asymmetryData) }} />
+            </CardContent>
+          </Card>
+        )}
 
         {/* VALD Dynamo Strength Results */}
         {((displayReport?.dynamoTests && displayReport.dynamoTests.length > 0) || (dynamoTestsList && dynamoTestsList.length > 0)) && (() => {
