@@ -434,6 +434,7 @@ interface ReportData {
   };
   summary: string;
   metricsRatings?: MetricRating[];
+  metricsAnalysis?: string;
   asymmetryAnalysis?: string;
   asymmetryData?: AsymmetryItem[];
   dynamoTests?: Array<{
@@ -688,17 +689,18 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
     try {
       toast.info("Preparing report for print... Rendering screenshots.", { duration: 60000, id: "pdf-prep" });
 
-      // Fetch annotations for all screenshots and convert images to base64
+      // Fetch annotations for all screenshots and render image + annotations
+      // onto a single canvas — matches the on-screen preview style exactly
+      // (same drawAnnotationsOnCanvas function used by AnnotatedScreenshot).
       const screenshotAnnotations: { screenshot: any; annotations: any[]; base64: string }[] = [];
       if (screenshotsList && screenshotsList.length > 0) {
         for (const ss of screenshotsList) {
           try {
-            const anns = await utils.annotation.list.fetch({ screenshotId: ss.id });
-            // Convert image to base64 (raw image — annotations will be SVG overlay)
-            const base64 = await imageToBase64(ss.imageUrl);
-            screenshotAnnotations.push({ screenshot: ss, annotations: anns || [], base64 });
+            const anns = (await utils.annotation.list.fetch({ screenshotId: ss.id })) || [];
+            const base64 = await renderAnnotatedScreenshotBase64(ss, anns);
+            screenshotAnnotations.push({ screenshot: ss, annotations: anns, base64 });
           } catch {
-            const base64 = await imageToBase64(ss.imageUrl);
+            const base64 = await renderAnnotatedScreenshotBase64(ss, []);
             screenshotAnnotations.push({ screenshot: ss, annotations: [], base64 });
           }
         }
@@ -743,31 +745,15 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
       const today = new Date().toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' });
       const assessDate = formData?.assessmentDate ? new Date(formData.assessmentDate).toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' }) : today;
 
-      // Helper to build screenshot grid HTML with SVG annotation overlays
-      const screenshotGridHtml = screenshotAnnotations.map(({ screenshot: ss, annotations: anns, base64 }) => {
-        const view = ss.viewType === 'side_left' ? 'Left Side' : ss.viewType === 'side_right' ? 'Right Side' : ss.viewType === 'back' ? 'Back View' : ss.viewType;
-        const phase = ss.gaitPhase === 'foot_strike' ? 'Foot Strike' : ss.gaitPhase === 'loading' || ss.gaitPhase === 'mid_stance' ? 'Loading' : ss.gaitPhase === 'push_off' ? 'Push Off' : ss.gaitPhase === 'swing' ? 'Swing' : ss.gaitPhase;
-        const svgOverlay = anns.length > 0 ? `<svg class="ss-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">${generateAnnotationSVG(anns)}</svg>` : '';
-        return `<div class="ss-card">
-          <div class="ss-img-wrap">
-            <img src="${base64}" alt="${view} - ${phase}" />
-            ${svgOverlay}
-          </div>
-          <div class="ss-label">${view} \u2014 ${phase}${ss.description ? ': ' + ss.description : ''}</div>
-        </div>`;
-      }).join('');
-
-      // Group screenshots by gait phase, pairing L and R side-by-side
+      // Group screenshots by gait phase, pairing L and R side-by-side.
+      // Annotations are already baked into base64 \u2014 no SVG overlay needed.
       const screenshotRowsHtml = (() => {
-        // Build card data with metadata
-        const cardData = screenshotAnnotations.map(({ screenshot: ss, annotations: anns, base64 }) => {
+        const cardData = screenshotAnnotations.map(({ screenshot: ss, base64 }) => {
           const view = ss.viewType === 'side_left' ? 'Left Side' : ss.viewType === 'side_right' ? 'Right Side' : ss.viewType === 'back' ? 'Back View' : ss.viewType;
           const phase = ss.gaitPhase === 'foot_strike' ? 'Foot Strike' : ss.gaitPhase === 'loading' || ss.gaitPhase === 'mid_stance' ? 'Loading' : ss.gaitPhase === 'push_off' ? 'Push Off' : ss.gaitPhase === 'swing' ? 'Swing' : ss.gaitPhase;
-          const svgOverlay = anns.length > 0 ? `<svg class="ss-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">${generateAnnotationSVG(anns)}</svg>` : '';
           const html = `<div class="ss-card">
             <div class="ss-img-wrap">
               <img src="${base64}" alt="${view} - ${phase}" />
-              ${svgOverlay}
             </div>
             <div class="ss-label">${view} \u2014 ${phase}${ss.description ? ': ' + ss.description : ''}</div>
           </div>`;
@@ -863,6 +849,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
               }).join('')}
             </tbody>
           </table>
+          ${displayReport.metricsAnalysis ? `<p style="margin:10px 2px 0;font-size:10.5px;font-style:italic;color:${BRAND.text};white-space:pre-wrap;line-height:1.55">${asText(displayReport.metricsAnalysis)}</p>` : ''}
         </div>` : '';
 
       // Asymmetry section HTML \u2014 chart only, table removed per design decision
@@ -870,6 +857,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
         ? `<div class="section">
             <h2>Left vs Right Asymmetry</h2>
             <div style="text-align:center;margin:8px 0">${asymSvg}</div>
+            ${displayReport.asymmetryAnalysis ? `<p style="margin:10px 2px 0;font-size:10.5px;font-style:italic;color:${BRAND.text};white-space:pre-wrap;line-height:1.55">${asText(displayReport.asymmetryAnalysis)}</p>` : ''}
           </div>`
         : '';
 
@@ -1492,19 +1480,53 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
           </Card>
         )}
 
-        {/* Screenshots with annotations */}
-        {screenshotsList && screenshotsList.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base text-[#1A2744]">Running Analysis</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3">
-                {screenshotsList.map(ss => (
-                  <AnnotatedScreenshot key={ss.id} screenshot={ss} />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Screenshots with annotations — grouped by gait phase,
+            Left side on the left column, Right side on the right column */}
+        {screenshotsList && screenshotsList.length > 0 && (() => {
+          const phaseOrder = ["foot_strike", "loading", "mid_stance", "push_off", "swing"];
+          const phaseLabels: Record<string, string> = {
+            foot_strike: "Foot Strike",
+            loading: "Loading",
+            mid_stance: "Loading",
+            push_off: "Push Off",
+            swing: "Swing",
+          };
+          const viewSort: Record<string, number> = { side_left: 0, side_right: 1, back: 2 };
+          const groups = new Map<string, typeof screenshotsList>();
+          for (const ss of screenshotsList) {
+            const key = ss.gaitPhase || "other";
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(ss);
+          }
+          const orderedKeys = [
+            ...phaseOrder.filter(k => groups.has(k)),
+            ...Array.from(groups.keys()).filter(k => !phaseOrder.includes(k)),
+          ];
+          return (
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base text-[#1A2744]">Running Analysis</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                {orderedKeys.map(key => {
+                  const group = [...groups.get(key)!].sort(
+                    (a, b) => (viewSort[a.viewType] ?? 3) - (viewSort[b.viewType] ?? 3)
+                  );
+                  return (
+                    <div key={key} className="space-y-2">
+                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        {phaseLabels[key] || key}
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        {group.map(ss => (
+                          <AnnotatedScreenshot key={ss.id} screenshot={ss} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* 10-Metric Running Assessment Table */}
         {displayReport?.metricsRatings && displayReport.metricsRatings.length > 0 && (
@@ -1574,6 +1596,21 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
                   </tbody>
                 </table>
               </div>
+              <div className="mt-3">
+                {isEditing ? (
+                  <Textarea
+                    value={asText(editingReport?.metricsAnalysis)}
+                    onChange={e => updateField("metricsAnalysis", e.target.value)}
+                    rows={3}
+                    className="text-sm"
+                    placeholder="Comment on the metrics (key findings, patterns, priorities)\u2026"
+                  />
+                ) : displayReport?.metricsAnalysis ? (
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground italic">
+                    {asText(displayReport.metricsAnalysis)}
+                  </p>
+                ) : null}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -1587,6 +1624,21 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
             </CardHeader>
             <CardContent>
               <div className="border rounded-lg p-3 bg-white overflow-x-auto" dangerouslySetInnerHTML={{ __html: generateAsymmetryChartSVG(displayReport.asymmetryData) }} />
+              <div className="mt-3">
+                {isEditing ? (
+                  <Textarea
+                    value={asText(editingReport?.asymmetryAnalysis)}
+                    onChange={e => updateField("asymmetryAnalysis", e.target.value)}
+                    rows={3}
+                    className="text-sm"
+                    placeholder="Comment on the asymmetry (clinical significance, side bias, drivers)\u2026"
+                  />
+                ) : displayReport?.asymmetryAnalysis ? (
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground italic">
+                    {asText(displayReport.asymmetryAnalysis)}
+                  </p>
+                ) : null}
+              </div>
             </CardContent>
           </Card>
         )}
