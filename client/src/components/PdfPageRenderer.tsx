@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Loader2 } from "lucide-react";
-import { trpc } from "@/lib/trpc";
+// Use the legacy build for the widest browser compatibility under Vite.
+// `?url` returns a static URL for the worker bundle so we can point pdf.js at it.
+import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
+
+// Wire up the worker once.
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 interface PdfPageRendererProps {
   url: string;
@@ -10,44 +16,67 @@ interface PdfPageRendererProps {
 }
 
 /**
- * Renders PDF pages as images inline using server-side conversion.
- * The server downloads the PDF and converts it to JPEG images using pdftoppm.
- * No browser-side pdfjs needed — just displays <img> tags.
+ * Render PDF pages to base64 JPEGs entirely in the browser using pdf.js.
+ * Accepts both http(s) URLs and `data:` URLs.
  */
+export async function renderPdfToBase64Images(
+  url: string,
+  scale = 1.5,
+  maxPages = 10
+): Promise<string[]> {
+  const loadingTask = pdfjs.getDocument({
+    url,
+    isEvalSupported: false,
+    disableFontFace: false,
+  });
+  const pdf = await loadingTask.promise;
+  const pageCount = Math.min(pdf.numPages, maxPages);
+  const images: string[] = [];
+
+  for (let i = 1; i <= pageCount; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) continue;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    images.push(canvas.toDataURL("image/jpeg", 0.85));
+    page.cleanup();
+  }
+
+  await pdf.destroy();
+  return images;
+}
+
 export default function PdfPageRenderer({ url, maxPages = 10, onPagesRendered }: PdfPageRendererProps) {
   const [pageImages, setPageImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const renderingRef = useRef(false);
 
-  const pdfToImages = trpc.pdf.toImages.useMutation();
-
   const renderPdf = useCallback(async () => {
     if (renderingRef.current) return;
     renderingRef.current = true;
     setLoading(true);
     setError(null);
-
     try {
-      const result = await pdfToImages.mutateAsync({
-        url,
-        dpi: 150,
-        maxPages,
-      });
-      setPageImages(result.images);
-      onPagesRendered?.(result.images);
+      const images = await renderPdfToBase64Images(url, 1.5, maxPages);
+      setPageImages(images);
+      onPagesRendered?.(images);
     } catch (err: any) {
       console.error("PDF render error:", err);
-      setError(err.message || "Failed to render PDF");
+      setError(err?.message || "Failed to render PDF");
     } finally {
       setLoading(false);
       renderingRef.current = false;
     }
-  }, [url, maxPages]);
+  }, [url, maxPages, onPagesRendered]);
 
   useEffect(() => {
     if (url) renderPdf();
-  }, [url]);
+  }, [url, renderPdf]);
 
   if (loading) {
     return (
@@ -62,9 +91,12 @@ export default function PdfPageRenderer({ url, maxPages = 10, onPagesRendered }:
     return (
       <div className="text-center py-6 text-sm text-muted-foreground">
         <p>Could not render PDF inline.</p>
-        <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#1A6B9C] hover:underline mt-1 inline-block">
-          Open PDF in new tab
-        </a>
+        <p className="text-xs mt-1">{error}</p>
+        {url.startsWith("http") && (
+          <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#1A6B9C] hover:underline mt-1 inline-block">
+            Open PDF in new tab
+          </a>
+        )}
       </div>
     );
   }
@@ -78,36 +110,9 @@ export default function PdfPageRenderer({ url, maxPages = 10, onPagesRendered }:
               Page {i + 1} of {pageImages.length}
             </span>
           </div>
-          <img
-            src={dataUrl}
-            alt={`PDF page ${i + 1}`}
-            className="w-full h-auto"
-            style={{ display: "block" }}
-          />
+          <img src={dataUrl} alt={`PDF page ${i + 1}`} className="w-full h-auto" style={{ display: "block" }} />
         </div>
       ))}
     </div>
   );
-}
-
-/**
- * Utility: render PDF pages to base64 images for PDF export.
- * Uses the server-side conversion endpoint.
- * Returns empty array on failure (graceful degradation).
- */
-export async function renderPdfToBase64Images(url: string, _scale = 2, maxPages = 10): Promise<string[]> {
-  try {
-    // Call the server API directly (not via tRPC hook, since this is called outside React)
-    const resp = await fetch("/api/trpc/pdf.toImages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ json: { url, dpi: 150, maxPages } }),
-    });
-    if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
-    const data = await resp.json();
-    return data?.result?.data?.json?.images || [];
-  } catch (err) {
-    console.error("PDF to base64 render error:", err);
-    return [];
-  }
 }

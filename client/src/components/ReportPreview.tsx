@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Loader2, FileDown, Wand2, RefreshCw, Pencil, Eye, Save, Plus, Trash2 } from "lucide-react";
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import PdfPageRenderer from "@/components/PdfPageRenderer";
+import PdfPageRenderer, { renderPdfToBase64Images } from "@/components/PdfPageRenderer";
 // Plain text renderer - replaces Streamdown to prevent markdown/code rendering
 // Flatten any value to a plain string. Handles cases where the AI returned
 // { title, content } or { text } objects instead of strings.
@@ -489,7 +489,6 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
     },
     onError: (err) => toast.error(err.message),
   });
-  const pdfToImages = trpc.pdf.toImages.useMutation();
 
   const report = useMemo<ReportData | null>(() => {
     if (formData?.reportJson) {
@@ -709,14 +708,13 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
       // Convert logo to base64
       const logoBase64 = await imageToBase64(LOGO_HORIZONTAL);
 
-      // Render InBody and VO2 PDF pages to images via typed tRPC mutation.
-      // Surface failures with a toast so they don't silently drop from the report.
+      // Render InBody and VO2 PDF pages to images entirely in the browser
+      // (pdfjs-dist — no server pdftoppm dependency). Failures surface as toasts.
       let inbodyImages: string[] = [];
       let vo2Images: string[] = [];
       if (formData?.inbodyFileUrl) {
         try {
-          const result = await pdfToImages.mutateAsync({ url: formData.inbodyFileUrl, dpi: 150, maxPages: 5 });
-          inbodyImages = result.images;
+          inbodyImages = await renderPdfToBase64Images(formData.inbodyFileUrl, 1.5, 5);
           if (inbodyImages.length === 0) {
             toast.warning("InBody PDF rendered 0 pages — check the uploaded file.");
           }
@@ -726,8 +724,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
       }
       if (formData?.vo2FileUrl) {
         try {
-          const result = await pdfToImages.mutateAsync({ url: formData.vo2FileUrl, dpi: 150, maxPages: 5 });
-          vo2Images = result.images;
+          vo2Images = await renderPdfToBase64Images(formData.vo2FileUrl, 1.5, 5);
           if (vo2Images.length === 0) {
             toast.warning("VO2 PDF rendered 0 pages — check the uploaded file.");
           }
