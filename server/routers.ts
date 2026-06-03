@@ -600,21 +600,30 @@ All "string" fields MUST be plain strings, NOT objects. Do NOT wrap strings in {
 
 IMPORTANT FORMATTING RULES:
 1. All text fields must be plain text only — do NOT use markdown formatting, code blocks, backticks, asterisks for bold, or any special formatting characters.
-2. For the 'problems' array (Key Findings), each finding string in the 'findings' array MUST be a SHORT chain-reasoning statement (one line, max 2-3 arrows) that identifies ONE specific biomechanical observation and traces it to ONE specific tissue-level consequence. Do NOT repeat the same reasoning chain across multiple findings. Each finding must point to a DIFFERENT consequence. Keep it concise. Example: "Overstride 15 deg -> Braking force increase -> Anterior tibial stress increase". Another example: "Contralateral pelvic drop 8 deg -> ITB tensile load increase". Use -> for causal arrows and increase/decrease labels.
-3. For management sections (gaitRelearning, mobilityExercises, strengthExercises, runningProgramming), write each recommendation as a SHORT, scannable single-line prescription on its own line. Use newline characters to separate items. Do NOT number them or use bullet characters.
 
-CRITICAL — KEEP MANAGEMENT ITEMS CONCISE:
-- Each item ONE line, ideally under 12 words
-- Format: "Exercise name X sets x Y reps — short cue / focus"
-- Examples (mimic this terse style exactly):
-  • "Calf raise 3x15 — slow eccentric focus"
-  • "Single-leg RDL 3x10 each side — neutral pelvis"
-  • "Hip flexor stretch 3x30s — daily"
-  • "Cadence drill 5 min @ 175 spm — metronome cue"
-  • "Easy run 30 min @ Zone 2 — nasal breathing only"
-- Do NOT write paragraphs or multi-sentence explanations
-- Do NOT add filler like "Practice..." or "Focus on doing..." — just state the prescription
-- The 'gaitRelearning' section includes both running cues AND drills, all in this terse single-line format.
+2. KEY FINDINGS (problems array) — POINT FORM, NOT PROSE:
+   - MAX 3 problems total. Pick the 3 with the highest clinical impact and skip the rest.
+   - Each problem has: title (3-5 words), description (ONE short clinical sentence — max 20 words, no paragraphs), findings (3-4 bullet-style chain-reasoning lines).
+   - Each finding is a single line: "Observation N° -> Mechanism -> Tissue consequence". Max 2-3 arrows. Under 15 words.
+   - Do NOT repeat the same reasoning chain across findings. Each finding must point to a DIFFERENT consequence.
+   - Example finding: "Overstride 15° -> Braking force ↑ -> Anterior tibial stress ↑"
+   - Example finding: "Contralateral pelvic drop 8° -> ITB tensile load ↑"
+   - Do NOT write multi-sentence descriptions. Do NOT write narrative explanations inside findings.
+
+3. MANAGEMENT (gaitRelearning, mobilityExercises, strengthExercises, runningProgramming) — TERSE PRESCRIPTIONS:
+   - MAX 3 items per section. Choose the highest-impact items only. Do NOT pad to fill space.
+   - Each item is ONE line, under 12 words, on its own line (separated by newlines).
+   - Format: "Exercise name X sets x Y reps — short cue / focus"
+   - Examples (mimic this terse style exactly):
+     • "Calf raise 3x15 — slow eccentric focus"
+     • "Single-leg RDL 3x10 each side — neutral pelvis"
+     • "Hip flexor stretch 3x30s — daily"
+     • "Cadence drill 5 min @ 175 spm — metronome cue"
+     • "Easy run 30 min @ Zone 2 — nasal breathing only"
+   - Do NOT number items or use bullet characters. Do NOT write paragraphs or multi-sentence explanations.
+   - Do NOT add filler like "Practice..." or "Focus on doing..." — just state the prescription.
+   - The 'gaitRelearning' section includes both running cues AND drills in this same terse format (still max 3 items combined).
+
 4. Write background and impressionFromTesting in natural prose paragraphs.
 5. CRITICAL: Your entire response MUST be a single valid JSON object — start with { and end with }. Do NOT wrap it in markdown code fences (no \`\`\`json ... \`\`\`). Do NOT include any text before or after the JSON.`
           },
@@ -632,13 +641,13 @@ CRITICAL — KEEP MANAGEMENT ITEMS CONCISE:
                 impressionFromTesting: { type: "string", description: "Detailed impression from all testing including VO2, InBody, and gait analysis" },
                 problems: {
                   type: "array",
-                  description: "Key clinical findings synthesised from ALL data sources: video gait metrics, VO2/cardiorespiratory data, InBody/body composition data, VALD strength testing, subjective history, and injury background. Each finding should draw connections across data sources where relevant — not just list metric deviations.",
+                  description: "MAX 3 key clinical findings — the 3 with the highest clinical impact. Synthesise across ALL data sources (gait metrics, VO2, InBody, VALD strength, subjective history). Draw cross-source connections, not just metric lists.",
                   items: {
                     type: "object",
                     properties: {
-                      title: { type: "string", description: "Short title for this finding (e.g. 'Reduced Shock Absorption Capacity', 'Cardiorespiratory-Gait Mismatch')" },
-                      description: { type: "string", description: "A 2-3 sentence clinical explanation that references specific data from multiple sources where relevant (e.g. 'Low peak knee flexion (35°) combined with elevated tibial inclination suggests a stiff landing pattern. This is consistent with the patient's reported anterior knee pain and may be compounded by quadriceps weakness identified in VALD testing.')" },
-                      findings: { type: "array", items: { type: "string", description: "A concise chain-reasoning statement (max 2-3 arrows) pointing to ONE unique consequence. Reference the data source (e.g. 'Stiff knee at loading (M03: 35°) → ↑ bone & PF compression → anterior knee pain [consistent with subjective Hx]')" } }
+                      title: { type: "string", description: "Short title, 3-5 words (e.g. 'Reduced Shock Absorption', 'Cardiorespiratory-Gait Mismatch')" },
+                      description: { type: "string", description: "ONE short clinical sentence — max 20 words. No paragraphs, no multi-sentence prose." },
+                      findings: { type: "array", description: "MAX 4 items. Each is a SINGLE LINE in chain-reasoning form: 'Observation N° -> Mechanism -> Tissue consequence'. Under 15 words per line. Use -> arrows and ↑/↓ for change." , items: { type: "string" } }
                     },
                     required: ["title", "description", "findings"],
                     additionalProperties: false
@@ -646,11 +655,12 @@ CRITICAL — KEEP MANAGEMENT ITEMS CONCISE:
                 },
                 management: {
                   type: "object",
+                  description: "Each section is a newline-separated list. MAX 3 items per section — highest-impact only, no padding.",
                   properties: {
-                    gaitRelearning: { type: "string", description: "Combined running cues + gait re-education drills, one per line" },
-                    mobilityExercises: { type: "string" },
-                    strengthExercises: { type: "string" },
-                    runningProgramming: { type: "string" }
+                    gaitRelearning: { type: "string", description: "Running cues + gait re-education drills combined. MAX 3 items total, one per line. Format: 'Drill Xx reps — cue'." },
+                    mobilityExercises: { type: "string", description: "MAX 3 items, one per line. Format: 'Stretch/drill duration/reps — focus'." },
+                    strengthExercises: { type: "string", description: "MAX 3 items, one per line. Format: 'Exercise X sets x Y reps — focus'." },
+                    runningProgramming: { type: "string", description: "MAX 3 items, one per line. Format: 'Session type duration @ intensity — purpose'." }
                   },
                   required: ["gaitRelearning", "mobilityExercises", "strengthExercises", "runningProgramming"],
                   additionalProperties: false
