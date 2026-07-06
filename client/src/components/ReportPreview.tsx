@@ -1269,14 +1269,14 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
 ${inbodyImages.length > 0 ? `
 <div class="section" style="page-break-before:always">
   <h2>InBody Body Composition Report</h2>
-  ${inbodyImages.map((img: string, i: number) => `<div style="margin-bottom:12px;text-align:center${i > 0 ? ';page-break-before:always' : ''}"><img src="${img}" style="max-width:100%;height:auto;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.08)" alt="InBody page ${i + 1}" /></div>`).join('')}
+  ${inbodyImages.map((img: string, i: number) => `<div style="margin-bottom:12px;text-align:center${i > 0 ? ';page-break-before:always' : ''}"><img src="${img}" style="max-width:100%;max-height:230mm;width:auto;height:auto;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.08)" alt="InBody page ${i + 1}" /></div>`).join('')}
 </div>` : ''}
 
 <!-- VO2 Master Cardiorespiratory Report — directly after InBody -->
 ${vo2Images.length > 0 ? `
 <div class="section" style="page-break-before:always">
   <h2>VO2 Master Cardiorespiratory Report</h2>
-  ${vo2Images.map((img: string, i: number) => `<div style="margin-bottom:12px;text-align:center${i > 0 ? ';page-break-before:always' : ''}"><img src="${img}" style="max-width:100%;height:auto;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.08)" alt="VO2 page ${i + 1}" /></div>`).join('')}
+  ${vo2Images.map((img: string, i: number) => `<div style="margin-bottom:12px;text-align:center${i > 0 ? ';page-break-before:always' : ''}"><img src="${img}" style="max-width:100%;max-height:230mm;width:auto;height:auto;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.08)" alt="VO2 page ${i + 1}" /></div>`).join('')}
 </div>` : ''}
 
 <!-- How to Use This Report -->
