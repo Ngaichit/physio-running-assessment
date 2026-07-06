@@ -41,7 +41,10 @@ export async function renderPdfToBase64Images(
     canvas.height = Math.ceil(viewport.height);
     const ctx = canvas.getContext("2d");
     if (!ctx) continue;
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    // intent "print" schedules render continuations with microtasks instead of
+    // requestAnimationFrame — rAF never fires in a backgrounded tab, which hangs
+    // this render forever when the export popup has stolen focus.
+    await page.render({ canvasContext: ctx, viewport, intent: "print" }).promise;
     images.push(canvas.toDataURL("image/jpeg", 0.85));
     page.cleanup();
   }

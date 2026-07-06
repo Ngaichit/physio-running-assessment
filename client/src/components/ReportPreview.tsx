@@ -715,6 +715,21 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
 
   const handleExportPDF = async () => {
     setExporting(true);
+    // Open the tab synchronously on click — the browser's popup blocker kills
+    // window.open once the click's user activation expires (~5s), and the prep
+    // below (annotation fetches + PDF rendering) can easily take longer.
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error("Popup blocked. Please allow popups for this site.");
+      setExporting(false);
+      return;
+    }
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Preparing report…</title></head>
+<body style="font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#1A6B9C">
+<div style="text-align:center"><div style="font-size:15px;font-weight:600">Preparing report…</div>
+<div style="font-size:12px;color:#64748b;margin-top:8px">Rendering screenshots and PDF pages. This can take a little while.</div></div>
+</body></html>`);
+    printWindow.document.close();
     try {
       toast.info("Preparing report for print... Rendering screenshots.", { duration: 60000, id: "pdf-prep" });
 
@@ -1370,13 +1385,8 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
 
       toast.dismiss("pdf-prep");
 
-      // Open in new window for printing
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
-        toast.error("Popup blocked. Please allow popups for this site.");
-        setExporting(false);
-        return;
-      }
+      // Replace the placeholder with the finished report
+      printWindow.document.open();
       printWindow.document.write(html);
       printWindow.document.close();
 
@@ -1384,6 +1394,7 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
       setExporting(false);
     } catch (err: any) {
       console.error("PDF export error:", err);
+      printWindow.close();
       toast.dismiss("pdf-prep");
       toast.error(err.message || "Failed to export PDF");
       setExporting(false);
