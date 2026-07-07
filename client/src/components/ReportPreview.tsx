@@ -9,6 +9,7 @@ import { Loader2, FileDown, Wand2, RefreshCw, Pencil, Eye, Save, Plus, Trash2 } 
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import PdfPageRenderer, { renderPdfToBase64Images } from "@/components/PdfPageRenderer";
+import { escapeHtml } from "@/report/escape";
 // Plain text renderer - replaces Streamdown to prevent markdown/code rendering
 // Flatten any value to a plain string. Handles cases where the AI returned
 // { title, content } or { text } objects instead of strings.
@@ -58,7 +59,7 @@ function bulletListHtml(value: unknown): string {
     .map((line: string) => line.replace(/^\s*[-*•·]\s*|^\s*\d+[.)]\s*/, "").trim())
     .filter(Boolean);
   if (items.length === 0) return "";
-  return `<ul style="margin:10px 2px 0;padding-left:18px;font-size:10.5px;color:#333;line-height:1.55;list-style-type:disc">${items.map(i => `<li style="margin:2px 0">${i}</li>`).join("")}</ul>`;
+  return `<ul style="margin:10px 2px 0;padding-left:18px;font-size:10.5px;color:#333;line-height:1.55;list-style-type:disc">${items.map(i => `<li style="margin:2px 0">${escapeHtml(i)}</li>`).join("")}</ul>`;
 }
 
 const LOGO_HORIZONTAL = "/logo-horizontal.png";
@@ -398,7 +399,7 @@ function generateAsymmetryChartSVG(asymmetryData: AsymmetryItem[]): string {
 
     // Metric label
     const metricLabel = a.metricName.length > 22 ? a.metricName.substring(0, 21) + '\u2026' : a.metricName;
-    out += `<text x="10" y="${y + rowH / 2}" dominant-baseline="middle" font-size="11" font-family="Inter, sans-serif" fill="${BRAND.navy}" font-weight="600">${metricLabel}</text>`;
+    out += `<text x="10" y="${y + rowH / 2}" dominant-baseline="middle" font-size="11" font-family="Inter, sans-serif" fill="${BRAND.navy}" font-weight="600">${escapeHtml(metricLabel)}</text>`;
 
     // Left bar (extends from centerX to the left)
     const barH = 16;
@@ -783,6 +784,10 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
 
       // Build the full HTML report
       const patientName = patient ? patient.name : 'Unknown';
+      // String-path escaping: esc() for plain values, escText() for AI text
+      // that first flows through asText(). Used ONLY in the document.write template.
+      const esc = escapeHtml;
+      const escText = (v: unknown) => escapeHtml(asText(v));
       const practitionerName = reportPractitioner?.name || '';
       const today = new Date().toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' });
       const assessDate = formData?.assessmentDate ? new Date(formData.assessmentDate).toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' }) : today;
@@ -797,7 +802,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
             <div class="ss-img-wrap">
               <img src="${base64}" alt="${view} - ${phase}" />
             </div>
-            <div class="ss-label">${view} \u2014 ${phase}${ss.description ? ': ' + ss.description : ''}</div>
+            <div class="ss-label">${view} \u2014 ${phase}${ss.description ? ': ' + esc(ss.description) : ''}</div>
           </div>`;
           return { gaitPhase: ss.gaitPhase, viewType: ss.viewType, phase, html };
         });
@@ -877,16 +882,16 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
                 const hasLR = r.leftValue != null || r.rightValue != null;
                 const ratingClass = (r.rating === 'Optimal' || r.rating === 'Ref. Target') ? 'rating-optimal' : r.rating === 'Low' ? 'rating-low' : r.rating === 'High' ? 'rating-high' : 'rating-na';
                 return `<tr class="${(i + (formData?.cadence ? 1 : 0)) % 2 === 0 ? 'even' : ''}">
-                  <td class="mono" style="color:${BRAND.navy};font-weight:700;font-size:10px">${r.metricId || ''}</td>
-                  <td style="font-weight:600;font-family:Inter,sans-serif;font-size:10px">${r.metricName}</td>
-                  <td class="center muted" style="font-size:9px">${r.view || ''}</td>
-                  <td class="center muted" style="font-size:9px">${r.phase || ''}</td>
+                  <td class="mono" style="color:${BRAND.navy};font-weight:700;font-size:10px">${esc(r.metricId || '')}</td>
+                  <td style="font-weight:600;font-family:Inter,sans-serif;font-size:10px">${esc(r.metricName)}</td>
+                  <td class="center muted" style="font-size:9px">${esc(r.view || '')}</td>
+                  <td class="center muted" style="font-size:9px">${esc(r.phase || '')}</td>
                   <td class="center mono" style="color:${BRAND.blue};font-weight:600">${hasLR && r.leftValue != null ? r.leftValue + '\u00b0' : '\u2014'}</td>
                   <td class="center mono" style="color:${BRAND.orange};font-weight:600">${hasLR && r.rightValue != null ? r.rightValue + '\u00b0' : '\u2014'}</td>
-                  <td class="center mono" style="font-weight:600">${r.rating === 'Not Measured' ? '\u2014' : isCategory ? r.rating : r.measuredValue + '\u00b0'}</td>
-                  <td class="center mono muted" style="font-size:9px">${r.optimalRange || ''}</td>
-                  <td class="center"><span class="${ratingClass}">${r.rating === 'Optimal' ? 'Ref. Target' : r.rating}</span></td>
-                  <td style="color:${BRAND.text};font-size:9.5px">${isCategory && r.finding ? r.finding : (r.loadShift && r.loadShift !== '\u2014' ? r.loadShift : '\u2014')}</td>
+                  <td class="center mono" style="font-weight:600">${r.rating === 'Not Measured' ? '\u2014' : isCategory ? esc(r.rating) : r.measuredValue + '\u00b0'}</td>
+                  <td class="center mono muted" style="font-size:9px">${esc(r.optimalRange || '')}</td>
+                  <td class="center"><span class="${ratingClass}">${r.rating === 'Optimal' ? 'Ref. Target' : esc(r.rating)}</span></td>
+                  <td style="color:${BRAND.text};font-size:9.5px">${isCategory && r.finding ? esc(r.finding) : (r.loadShift && r.loadShift !== '\u2014' ? esc(r.loadShift) : '\u2014')}</td>
                 </tr>`;
               }).join('')}
             </tbody>
@@ -912,7 +917,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
           <h2>Strength Assessment (VALD Dynamo)</h2>
           ${Object.entries(grouped).map(([joint, tests]) => {
             const calcAsym = (l: number | null | undefined, r: number | null | undefined) => { if (l == null || r == null || (l === 0 && r === 0)) return null; const max = Math.max(l, r), min = Math.min(l, r); return max > 0 ? Math.round(((max - min) / max) * 100) : null; };
-            return `<h3 style="color:${BRAND.blue};font-size:13px;margin:10px 0 4px">${joint}</h3>
+            return `<h3 style="color:${BRAND.blue};font-size:13px;margin:10px 0 4px">${esc(joint)}</h3>
               <table>
                 <thead><tr><th>Movement</th><th>Measure</th><th style="width:55px">Left</th><th style="width:55px">Right</th><th style="width:45px">Unit</th><th style="width:65px">Asymmetry</th></tr></thead>
                 <tbody>${(tests as any[]).map((t: any) => {
@@ -926,11 +931,11 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
                     { label: 'Time to Peak', l: t.leftTimeToPeak, r: t.rightTimeToPeak, unit: 'ms', asym: ttpAsym },
                   ].filter(row => row.l != null || row.r != null);
                   return rows.map((row, ri) => `<tr class="${ri === 0 ? 'even' : ''}">
-                    ${ri === 0 ? `<td rowspan="${rows.length}" style="font-weight:600;vertical-align:top">${t.movement}${t.position ? `<br><span class="muted" style="font-size:9px">(${t.position})</span>` : ''}</td>` : ''}
+                    ${ri === 0 ? `<td rowspan="${rows.length}" style="font-weight:600;vertical-align:top">${esc(t.movement)}${t.position ? `<br><span class="muted" style="font-size:9px">(${esc(t.position)})</span>` : ''}</td>` : ''}
                     <td class="muted">${row.label}</td>
                     <td class="center mono">${row.l != null ? row.l : '\u2014'}</td>
                     <td class="center mono">${row.r != null ? row.r : '\u2014'}</td>
-                    <td class="center muted">${row.unit}</td>
+                    <td class="center muted">${esc(row.unit)}</td>
                     <td class="center"><span class="${row.asym != null ? (row.asym <= 10 ? 'rating-optimal' : row.asym <= 15 ? 'rating-low' : 'rating-high') : ''}">${row.asym != null ? row.asym + '%' : '\u2014'}</span></td>
                   </tr>`).join('');
                 }).join('')}</tbody>
@@ -946,9 +951,9 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
           <div style="display:grid;grid-template-columns:1fr;gap:12px">
           ${displayReport.problems.map((p: any) => `
             <div class="finding-card">
-              <h3>${asText(p.title)}</h3>
-              <p>${asText(p.description)}</p>
-              ${p.findings && p.findings.length > 0 ? `<ul>${p.findings.map((f: any) => `<li>${asText(f)}</li>`).join('')}</ul>` : ''}
+              <h3>${escText(p.title)}</h3>
+              <p>${escText(p.description)}</p>
+              ${p.findings && p.findings.length > 0 ? `<ul>${p.findings.map((f: any) => `<li>${escText(f)}</li>`).join('')}</ul>` : ''}
             </div>
           `).join('')}
           </div>
@@ -980,7 +985,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
       const html = `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
-<title>Running Assessment Report - ${patientName}</title>
+<title>Running Assessment Report - ${esc(patientName)}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;600;700&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1249,11 +1254,11 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
       <div class="subtitle">Performance Analysis & Rehabilitation Strategy</div>
     </div>
     <div class="cover-right">
-      <div class="info-item"><div class="info-label">Patient</div><div class="info-value">${patientName}</div></div>
+      <div class="info-item"><div class="info-label">Patient</div><div class="info-value">${esc(patientName)}</div></div>
       ${patient?.dateOfBirth ? `<div class="info-item"><div class="info-label">Date of Birth</div><div class="info-value">${new Date(patient.dateOfBirth).toLocaleDateString('en-AU')}</div></div>` : ''}
       <div class="info-item"><div class="info-label">Assessment Date</div><div class="info-value">${assessDate}</div></div>
-      ${practitionerName ? `<div class="info-item"><div class="info-label">Practitioner</div><div class="info-value">${practitionerName}</div></div>` : ''}
-      ${conditionsStr ? `<div class="info-item"><div class="info-label">Testing Conditions</div><div class="info-value" style="font-size:11px;font-weight:400;line-height:1.5">${conditionsStr}</div></div>` : ''}
+      ${practitionerName ? `<div class="info-item"><div class="info-label">Practitioner</div><div class="info-value">${esc(practitionerName)}</div></div>` : ''}
+      ${conditionsStr ? `<div class="info-item"><div class="info-label">Testing Conditions</div><div class="info-value" style="font-size:11px;font-weight:400;line-height:1.5">${esc(conditionsStr)}</div></div>` : ''}
     </div>
   </div>
   <div class="cover-bottom">
@@ -1286,7 +1291,7 @@ ${vo2Images.length > 0 ? `
 </div>
 
 <!-- Background -->
-${displayReport?.background ? `<div class="section"><h2>Background</h2><p style="font-size:11px;line-height:1.7;white-space:pre-wrap">${asText(displayReport.background)}</p></div>` : ''}
+${displayReport?.background ? `<div class="section"><h2>Background</h2><p style="font-size:11px;line-height:1.7;white-space:pre-wrap">${escText(displayReport.background)}</p></div>` : ''}
 
 <!-- Running Analysis Screenshots -->
 ${screenshotAnnotations.length > 0 ? `<div class="section"><h2>Running Analysis</h2>${screenshotRowsHtml}</div>` : ''}
@@ -1302,7 +1307,7 @@ ${asymmetryHtml}
 ${dynamoHtml}
 
 <!-- Impression -->
-${displayReport?.impressionFromTesting ? `<div style="page-break-before:always"></div><div class="section"><h2>Impression from Testing</h2><p style="font-size:11px;line-height:1.7;white-space:pre-wrap">${asText(displayReport.impressionFromTesting)}</p></div>` : ''}
+${displayReport?.impressionFromTesting ? `<div style="page-break-before:always"></div><div class="section"><h2>Impression from Testing</h2><p style="font-size:11px;line-height:1.7;white-space:pre-wrap">${escText(displayReport.impressionFromTesting)}</p></div>` : ''}
 
 <!-- Key Findings -->
 ${problemsHtml ? `<div style="page-break-before:always"></div>` : ''}
@@ -1330,9 +1335,9 @@ ${mgmtSections.length > 0 ? `
       const bulletHtml = lines.length > 1
         ? `<ul class="mgmt-card">${lines.map((l: string) => {
             const cleaned = l.replace(/^[-*\u2022]\s*/, '').replace(/^\d+\.\s*/, '');
-            return `<li>${cleaned}</li>`;
+            return `<li>${esc(cleaned)}</li>`;
           }).join('')}</ul>`
-        : `<p style="margin:4px 0 0;font-size:10.5px;line-height:1.7;color:${BRAND.text}">${lines[0] || ''}</p>`;
+        : `<p style="margin:4px 0 0;font-size:10.5px;line-height:1.7;color:${BRAND.text}">${esc(lines[0] || '')}</p>`;
       return `
       <div class="mgmt-card">
         <div class="mgmt-header">
@@ -1346,7 +1351,7 @@ ${mgmtSections.length > 0 ? `
 </div>` : ''}
 
 <!-- Summary -->
-${displayReport?.summary ? `<div class="section"><h2>Summary</h2><p style="font-size:11px;line-height:1.7;white-space:pre-wrap">${asText(displayReport.summary)}</p></div>` : ''}
+${displayReport?.summary ? `<div class="section"><h2>Summary</h2><p style="font-size:11px;line-height:1.7;white-space:pre-wrap">${escText(displayReport.summary)}</p></div>` : ''}
 
 <!-- Follow-up Reassessment -->
 ${formData?.followUpMonths && formData?.assessmentDate ? (() => {
@@ -1364,20 +1369,20 @@ ${formData?.followUpMonths && formData?.assessmentDate ? (() => {
 <!-- Practitioner Sign-off -->
 ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:3px solid ${BRAND.navy}">
   <p style="font-size:11px;color:${BRAND.gray};margin-bottom:20px;font-family:Inter,sans-serif">Kind regards,</p>
-  <p style="font-size:18px;font-weight:800;color:${BRAND.navy};margin:0;font-family:Inter,sans-serif">${reportPractitioner.name}</p>
-  ${reportPractitioner.title ? `<p style="font-size:12px;color:${BRAND.blue};margin:4px 0 0;font-family:Inter,sans-serif;font-weight:500">${reportPractitioner.title}${reportPractitioner.qualifications ? `, ${reportPractitioner.qualifications}` : ''}</p>` : ''}
-  ${reportPractitioner.clinic ? `<p style="font-size:11px;color:${BRAND.text};margin:12px 0 0;font-weight:600">${reportPractitioner.clinic}</p>` : ''}
+  <p style="font-size:18px;font-weight:800;color:${BRAND.navy};margin:0;font-family:Inter,sans-serif">${esc(reportPractitioner.name)}</p>
+  ${reportPractitioner.title ? `<p style="font-size:12px;color:${BRAND.blue};margin:4px 0 0;font-family:Inter,sans-serif;font-weight:500">${esc(reportPractitioner.title)}${reportPractitioner.qualifications ? `, ${esc(reportPractitioner.qualifications)}` : ''}</p>` : ''}
+  ${reportPractitioner.clinic ? `<p style="font-size:11px;color:${BRAND.text};margin:12px 0 0;font-weight:600">${esc(reportPractitioner.clinic)}</p>` : ''}
   <div style="margin-top:12px;font-size:10px;color:${BRAND.gray};line-height:2.0">
-    ${reportPractitioner.phone ? `<p style="margin:0">Phone: ${reportPractitioner.phone}</p>` : ''}
-    ${reportPractitioner.email ? `<p style="margin:0">Email: ${reportPractitioner.email}</p>` : ''}
-    ${reportPractitioner.website ? `<p style="margin:0">Web: ${reportPractitioner.website}</p>` : ''}
-    ${reportPractitioner.address ? `<p style="margin:0">Address: ${reportPractitioner.address}</p>` : ''}
+    ${reportPractitioner.phone ? `<p style="margin:0">Phone: ${esc(reportPractitioner.phone)}</p>` : ''}
+    ${reportPractitioner.email ? `<p style="margin:0">Email: ${esc(reportPractitioner.email)}</p>` : ''}
+    ${reportPractitioner.website ? `<p style="margin:0">Web: ${esc(reportPractitioner.website)}</p>` : ''}
+    ${reportPractitioner.address ? `<p style="margin:0">Address: ${esc(reportPractitioner.address)}</p>` : ''}
   </div>
 </div>` : ''}
 
 <!-- Page Footer -->
 <div style="margin-top:40px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-family:Inter,sans-serif;font-size:8px;color:${BRAND.gray};text-transform:uppercase;letter-spacing:1px">
-  <span>${patientName}</span>
+  <span>${esc(patientName)}</span>
   <span>Confidential</span>
 </div>
 
