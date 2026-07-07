@@ -5,6 +5,12 @@ describe("assertRequiredEnv", () => {
   it("throws when JWT_SECRET is empty in production", () => {
     expect(() => assertRequiredEnv({ JWT_SECRET: "", NODE_ENV: "production" })).toThrow(/JWT_SECRET/);
   });
+  it("throws when JWT_SECRET is undefined in production", () => {
+    expect(() => assertRequiredEnv({ NODE_ENV: "production" })).toThrow(/JWT_SECRET/);
+  });
+  it("throws when JWT_SECRET is whitespace-only in production", () => {
+    expect(() => assertRequiredEnv({ JWT_SECRET: "   ", NODE_ENV: "production" })).toThrow(/JWT_SECRET/);
+  });
   it("does not throw when JWT_SECRET is present", () => {
     expect(() => assertRequiredEnv({ JWT_SECRET: "x".repeat(32), NODE_ENV: "production" })).not.toThrow();
   });

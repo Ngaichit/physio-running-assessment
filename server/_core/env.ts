@@ -15,7 +15,7 @@ export const ENV = {
 
 export function assertRequiredEnv(source: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env): void {
   const isProd = source.NODE_ENV === "production";
-  if (isProd && !source.JWT_SECRET) {
+  if (isProd && !source.JWT_SECRET?.trim()) {
     throw new Error("JWT_SECRET is required in production but is empty. Set it in the Railway environment.");
   }
 }
