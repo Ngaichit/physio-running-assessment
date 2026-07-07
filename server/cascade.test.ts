@@ -12,10 +12,14 @@ const { deleted, makeDb } = vi.hoisted(() => {
     return p;
   };
   function makeDb() {
-    return {
+    const recorder: any = {
       select: () => ({ from: (t: any) => ({ where: () => rowsResult(t) }) }),
       delete: (t: any) => ({ where: () => { deleted.push(t.__name); return Promise.resolve(); } }),
+      // transaction runs the callback with the same recording handle (tx === db),
+      // so ordered deletes through the tx path are captured in `deleted`.
+      transaction: async (cb: any) => cb(recorder),
     };
+    return recorder;
   }
   return { deleted, makeDb };
 });
@@ -48,6 +52,8 @@ describe("deleteAssessment cascade", () => {
     expect(deleted).toContain("dynamoTests");
     expect(deleted).toContain("videos");
     expect(deleted).toContain("assessments");
+    // Annotations must be removed before their parent screenshots.
+    expect(deleted.indexOf("annotations")).toBeLessThan(deleted.indexOf("screenshots"));
     // The assessment row itself must be deleted LAST (after all children).
     expect(deleted.indexOf("assessments")).toBe(deleted.length - 1);
   });

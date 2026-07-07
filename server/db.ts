@@ -94,17 +94,24 @@ export async function updatePatient(id: number, userId: number, data: Partial<In
   await db.update(patients).set(data).where(and(eq(patients.id, id), eq(patients.userId, userId)));
 }
 
+// The drizzle transaction handle, derived from the base db's transaction()
+// callback signature so no direct dependency on drizzle's internal tx type.
+type DbHandle = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+type DbTx = Parameters<Parameters<DbHandle["transaction"]>[0]>[0];
+
 // Delete an assessment's children (annotations via screenshots, then screenshots,
-// dynamoTests, videos) and finally the assessment row. Caller verifies ownership.
-async function cascadeDeleteAssessment(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, assessmentId: number) {
-  const shots = await db.select({ id: screenshots.id }).from(screenshots).where(eq(screenshots.assessmentId, assessmentId));
+// dynamoTests, videos) and finally the assessment row. Runs against the passed-in
+// handle (the surrounding transaction) so the whole tree is deleted atomically.
+// Caller verifies ownership.
+async function cascadeDeleteAssessment(tx: DbTx, assessmentId: number) {
+  const shots = await tx.select({ id: screenshots.id }).from(screenshots).where(eq(screenshots.assessmentId, assessmentId));
   for (const s of shots) {
-    await db.delete(annotations).where(eq(annotations.screenshotId, s.id));
+    await tx.delete(annotations).where(eq(annotations.screenshotId, s.id));
   }
-  await db.delete(screenshots).where(eq(screenshots.assessmentId, assessmentId));
-  await db.delete(dynamoTests).where(eq(dynamoTests.assessmentId, assessmentId));
-  await db.delete(videos).where(eq(videos.assessmentId, assessmentId));
-  await db.delete(assessments).where(eq(assessments.id, assessmentId));
+  await tx.delete(screenshots).where(eq(screenshots.assessmentId, assessmentId));
+  await tx.delete(dynamoTests).where(eq(dynamoTests.assessmentId, assessmentId));
+  await tx.delete(videos).where(eq(videos.assessmentId, assessmentId));
+  await tx.delete(assessments).where(eq(assessments.id, assessmentId));
 }
 
 export async function deletePatient(id: number, userId: number) {
@@ -113,12 +120,15 @@ export async function deletePatient(id: number, userId: number) {
   const owned = await db.select({ id: patients.id }).from(patients)
     .where(and(eq(patients.id, id), eq(patients.userId, userId))).limit(1);
   if (owned.length === 0) return;
-  const rows = await db.select({ id: assessments.id }).from(assessments)
-    .where(and(eq(assessments.patientId, id), eq(assessments.userId, userId)));
-  for (const a of rows) {
-    await cascadeDeleteAssessment(db, a.id);
-  }
-  await db.delete(patients).where(and(eq(patients.id, id), eq(patients.userId, userId)));
+  // Cascade every owned assessment plus the patient row atomically.
+  await db.transaction(async (tx) => {
+    const rows = await tx.select({ id: assessments.id }).from(assessments)
+      .where(and(eq(assessments.patientId, id), eq(assessments.userId, userId)));
+    for (const a of rows) {
+      await cascadeDeleteAssessment(tx, a.id);
+    }
+    await tx.delete(patients).where(and(eq(patients.id, id), eq(patients.userId, userId)));
+  });
 }
 
 // ===== ASSESSMENTS =====
@@ -200,7 +210,8 @@ export async function deleteAssessment(id: number, userId: number) {
   const owned = await db.select({ id: assessments.id }).from(assessments)
     .where(and(eq(assessments.id, id), eq(assessments.userId, userId))).limit(1);
   if (owned.length === 0) return;
-  await cascadeDeleteAssessment(db, id);
+  // Cascade the whole child tree plus the assessment row atomically.
+  await db.transaction(async (tx) => { await cascadeDeleteAssessment(tx, id); });
 }
 
 // ===== SCREENSHOTS =====
