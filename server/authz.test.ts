@@ -128,3 +128,15 @@ describe("dynamo & video ownership", () => {
     expect(db.deleteVideo).not.toHaveBeenCalled();
   });
 });
+
+describe("ai.analyzePose ownership", () => {
+  it("throws NOT_FOUND when the screenshot isn't the user's", async () => {
+    vi.mocked(db.userOwnsScreenshot).mockResolvedValue(false);
+    const caller = appRouter.createCaller(authCtx(1));
+    await expect(caller.ai.analyzePose({
+      screenshotId: 10, imageUrl: "data:image/jpeg;base64,AAAA",
+      viewType: "side_left", gaitPhase: "foot_strike",
+    })).rejects.toThrow(/NOT_FOUND|not found/i);
+    expect(db.userOwnsScreenshot).toHaveBeenCalledWith(10, 1);
+  });
+});

@@ -461,6 +461,7 @@ export const appRouter = router({
       viewType: z.enum(["side_left", "side_right", "back"]),
       gaitPhase: z.enum(["foot_strike", "loading", "mid_stance", "push_off", "swing", "other"]),
     })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsScreenshot(input.screenshotId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
       // Determine which metrics to detect based on view type and gait phase
       const allMetrics = getMetricsForView(input.viewType, input.gaitPhase);
       // Filter out category-based metrics (like M01 Overstride) — they use manual category picker, not AI angle detection
