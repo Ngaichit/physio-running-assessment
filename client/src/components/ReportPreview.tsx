@@ -800,9 +800,9 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
           const phase = ss.gaitPhase === 'foot_strike' ? 'Foot Strike' : ss.gaitPhase === 'loading' || ss.gaitPhase === 'mid_stance' ? 'Loading' : ss.gaitPhase === 'push_off' ? 'Push Off' : ss.gaitPhase === 'swing' ? 'Swing' : ss.gaitPhase;
           const html = `<div class="ss-card">
             <div class="ss-img-wrap">
-              <img src="${base64}" alt="${view} - ${phase}" />
+              <img src="${base64}" alt="${esc(view)} - ${esc(phase)}" />
             </div>
-            <div class="ss-label">${view} \u2014 ${phase}${ss.description ? ': ' + esc(ss.description) : ''}</div>
+            <div class="ss-label">${esc(view)} \u2014 ${esc(phase)}${ss.description ? ': ' + esc(ss.description) : ''}</div>
           </div>`;
           return { gaitPhase: ss.gaitPhase, viewType: ss.viewType, phase, html };
         });
@@ -830,7 +830,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
             for (let i = 0; i < group.length; i += 2) {
               const pair = group.slice(i, i + 2).map(c => c.html).join('');
               const phaseTitle = group[0].phase;
-              rows += `<div class="ss-phase-group"><div class="ss-phase-title">${phaseTitle}</div><div class="ss-row">${pair}</div></div>`;
+              rows += `<div class="ss-phase-group"><div class="ss-phase-title">${esc(phaseTitle)}</div><div class="ss-row">${pair}</div></div>`;
             }
           }
         }
@@ -840,7 +840,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
           for (let i = 0; i < group.length; i += 2) {
             const pair = group.slice(i, i + 2).map((c: { html: string }) => c.html).join('');
             const phaseTitle = group[0].phase;
-            rows += `<div class="ss-phase-group"><div class="ss-phase-title">${phaseTitle}</div><div class="ss-row">${pair}</div></div>`;
+            rows += `<div class="ss-phase-group"><div class="ss-phase-title">${esc(phaseTitle)}</div><div class="ss-row">${pair}</div></div>`;
           }
         });
         return rows;
