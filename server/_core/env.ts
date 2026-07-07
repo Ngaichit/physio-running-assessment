@@ -12,3 +12,10 @@ export const ENV = {
   awsRegion: process.env.AWS_REGION ?? "us-east-1",
   awsBucket: process.env.AWS_BUCKET ?? "",
 };
+
+export function assertRequiredEnv(source: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env): void {
+  const isProd = source.NODE_ENV === "production";
+  if (isProd && !source.JWT_SECRET) {
+    throw new Error("JWT_SECRET is required in production but is empty. Set it in the Railway environment.");
+  }
+}
