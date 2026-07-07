@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
 import { storagePut } from "./storage";
@@ -102,7 +103,10 @@ export const appRouter = router({
   }),
 
   screenshot: router({
-    list: protectedProcedure.input(z.object({ assessmentId: z.number() })).query(({ input }) => db.getScreenshots(input.assessmentId)),
+    list: protectedProcedure.input(z.object({ assessmentId: z.number() })).query(async ({ ctx, input }) => {
+      if (!(await db.userOwnsAssessment(input.assessmentId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.getScreenshots(input.assessmentId);
+    }),
     create: protectedProcedure.input(z.object({
       assessmentId: z.number(),
       viewType: z.enum(["side_left", "side_right", "back"]),
@@ -113,18 +117,25 @@ export const appRouter = router({
       description: z.string().optional(),
       legSide: z.string().optional(),
       sortOrder: z.number().optional(),
-    })).mutation(({ input }) => db.createScreenshot(input)),
+    })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsAssessment(input.assessmentId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.createScreenshot(input);
+    }),
     update: protectedProcedure.input(z.object({
       id: z.number(),
       description: z.string().optional(),
       gaitPhase: z.enum(["foot_strike", "loading", "push_off", "swing", "other"]).optional(),
       legSide: z.string().optional().nullable(),
       sortOrder: z.number().optional(),
-    })).mutation(({ input }) => {
+    })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsScreenshot(input.id, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
       const { id, ...data } = input;
       return db.updateScreenshot(id, data);
     }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteScreenshot(input.id)),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsScreenshot(input.id, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.deleteScreenshot(input.id);
+    }),
   }),
 
   annotation: router({

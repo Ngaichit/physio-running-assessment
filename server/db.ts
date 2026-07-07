@@ -114,6 +114,34 @@ export async function getAssessment(id: number, userId: number) {
   return result[0];
 }
 
+// ===== OWNERSHIP CHECKS (multi-tenant guards) =====
+export async function userOwnsAssessment(assessmentId: number, userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: assessments.id }).from(assessments)
+    .where(and(eq(assessments.id, assessmentId), eq(assessments.userId, userId))).limit(1);
+  return rows.length > 0;
+}
+
+export async function userOwnsScreenshot(screenshotId: number, userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: screenshots.id }).from(screenshots)
+    .innerJoin(assessments, eq(screenshots.assessmentId, assessments.id))
+    .where(and(eq(screenshots.id, screenshotId), eq(assessments.userId, userId))).limit(1);
+  return rows.length > 0;
+}
+
+export async function userOwnsAnnotation(annotationId: number, userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: annotations.id }).from(annotations)
+    .innerJoin(screenshots, eq(annotations.screenshotId, screenshots.id))
+    .innerJoin(assessments, eq(screenshots.assessmentId, assessments.id))
+    .where(and(eq(annotations.id, annotationId), eq(assessments.userId, userId))).limit(1);
+  return rows.length > 0;
+}
+
 export async function createAssessment(data: InsertAssessment) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
