@@ -47,3 +47,37 @@ describe("screenshot ownership", () => {
     expect(db.deleteScreenshot).not.toHaveBeenCalled();
   });
 });
+
+describe("annotation ownership", () => {
+  it("annotation.list throws NOT_FOUND for a screenshot the user doesn't own", async () => {
+    vi.mocked(db.userOwnsScreenshot).mockResolvedValue(false);
+    const caller = appRouter.createCaller(authCtx(1));
+    await expect(caller.annotation.list({ screenshotId: 3 })).rejects.toThrow(/NOT_FOUND|not found/i);
+    expect(db.getAnnotations).not.toHaveBeenCalled();
+  });
+
+  it("annotation.update throws NOT_FOUND for an annotation the user doesn't own", async () => {
+    vi.mocked(db.userOwnsAnnotation).mockResolvedValue(false);
+    const caller = appRouter.createCaller(authCtx(1));
+    await expect(caller.annotation.update({ id: 8, color: "#fff" })).rejects.toThrow(/NOT_FOUND|not found/i);
+    expect(db.updateAnnotation).not.toHaveBeenCalled();
+  });
+});
+
+describe("screenshot create/update guards", () => {
+  it("screenshot.create throws NOT_FOUND for a foreign assessment", async () => {
+    vi.mocked(db.userOwnsAssessment).mockResolvedValue(false);
+    const caller = appRouter.createCaller(authCtx(1));
+    await expect(caller.screenshot.create({
+      assessmentId: 42, viewType: "back", gaitPhase: "loading", imageUrl: "https://x/y.jpg",
+    })).rejects.toThrow(/NOT_FOUND|not found/i);
+    expect(db.createScreenshot).not.toHaveBeenCalled();
+  });
+
+  it("screenshot.update throws NOT_FOUND for a foreign screenshot", async () => {
+    vi.mocked(db.userOwnsScreenshot).mockResolvedValue(false);
+    const caller = appRouter.createCaller(authCtx(1));
+    await expect(caller.screenshot.update({ id: 9, description: "x" })).rejects.toThrow(/NOT_FOUND|not found/i);
+    expect(db.updateScreenshot).not.toHaveBeenCalled();
+  });
+});

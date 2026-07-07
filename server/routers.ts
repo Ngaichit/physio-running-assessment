@@ -139,7 +139,10 @@ export const appRouter = router({
   }),
 
   annotation: router({
-    list: protectedProcedure.input(z.object({ screenshotId: z.number() })).query(({ input }) => db.getAnnotations(input.screenshotId)),
+    list: protectedProcedure.input(z.object({ screenshotId: z.number() })).query(async ({ ctx, input }) => {
+      if (!(await db.userOwnsScreenshot(input.screenshotId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.getAnnotations(input.screenshotId);
+    }),
     create: protectedProcedure.input(z.object({
       screenshotId: z.number(),
       annotationType: z.enum(["line", "angle", "circle", "text"]),
@@ -149,7 +152,10 @@ export const appRouter = router({
       metricName: z.string().optional(),
       measuredValue: z.number().optional(),
       useOuterAngle: z.boolean().optional(),
-    })).mutation(({ input }) => db.createAnnotation(input)),
+    })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsScreenshot(input.screenshotId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.createAnnotation(input);
+    }),
     update: protectedProcedure.input(z.object({
       id: z.number(),
       data: z.any().optional(),
@@ -158,11 +164,15 @@ export const appRouter = router({
       metricName: z.string().optional(),
       measuredValue: z.number().optional(),
       useOuterAngle: z.boolean().optional(),
-    })).mutation(({ input }) => {
+    })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsAnnotation(input.id, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
       const { id, ...data } = input;
       return db.updateAnnotation(id, data);
     }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteAnnotation(input.id)),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsAnnotation(input.id, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.deleteAnnotation(input.id);
+    }),
   }),
 
   metrics: router({
