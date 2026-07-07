@@ -1,6 +1,7 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import rateLimit from "express-rate-limit";
 import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { ENV } from "./env";
@@ -38,9 +39,18 @@ export async function passwordMatches(
   );
 }
 
+// 10 attempts per 15 minutes per IP on auth endpoints.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts. Please try again later." },
+});
+
 export function registerAuthRoutes(app: Express) {
   // ── Login ──────────────────────────────────────────────────────────────
-  app.post("/api/auth/login", async (req: Request, res: Response) => {
+  app.post("/api/auth/login", authLimiter, async (req: Request, res: Response) => {
     const { email, password } = req.body ?? {};
 
     if (!email || !password) {
@@ -82,7 +92,7 @@ export function registerAuthRoutes(app: Express) {
   });
 
   // ── Register ───────────────────────────────────────────────────────────
-  app.post("/api/auth/register", async (req: Request, res: Response) => {
+  app.post("/api/auth/register", authLimiter, async (req: Request, res: Response) => {
     const { name, email, password, inviteCode } = req.body ?? {};
 
     if (!name || !email || !password) {

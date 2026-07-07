@@ -31,6 +31,7 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   assertRequiredEnv();
   const app = express();
+  app.set("trust proxy", 1); // Railway terminates TLS at a proxy; use X-Forwarded-For
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
