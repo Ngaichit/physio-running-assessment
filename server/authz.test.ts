@@ -81,3 +81,50 @@ describe("screenshot create/update guards", () => {
     expect(db.updateScreenshot).not.toHaveBeenCalled();
   });
 });
+
+describe("dynamo & video ownership", () => {
+  it("dynamo.list throws NOT_FOUND for a foreign assessment", async () => {
+    vi.mocked(db.userOwnsAssessment).mockResolvedValue(false);
+    const caller = appRouter.createCaller(authCtx(1));
+    await expect(caller.dynamo.list({ assessmentId: 2 })).rejects.toThrow(/NOT_FOUND|not found/i);
+    expect(db.userOwnsAssessment).toHaveBeenCalledWith(2, 1);
+    expect(db.getDynamoTests).not.toHaveBeenCalled();
+  });
+
+  it("dynamo.create throws NOT_FOUND for a foreign assessment", async () => {
+    vi.mocked(db.userOwnsAssessment).mockResolvedValue(false);
+    const caller = appRouter.createCaller(authCtx(1));
+    await expect(caller.dynamo.create({ assessmentId: 2, joint: "Hip", movement: "Flexion" })).rejects.toThrow(/NOT_FOUND|not found/i);
+    expect(db.createDynamoTest).not.toHaveBeenCalled();
+  });
+
+  it("dynamo.update throws NOT_FOUND for a foreign row", async () => {
+    vi.mocked(db.userOwnsDynamoTest).mockResolvedValue(false);
+    const caller = appRouter.createCaller(authCtx(1));
+    await expect(caller.dynamo.update({ id: 4 })).rejects.toThrow(/NOT_FOUND|not found/i);
+    expect(db.userOwnsDynamoTest).toHaveBeenCalledWith(4, 1);
+    expect(db.updateDynamoTest).not.toHaveBeenCalled();
+  });
+
+  it("dynamo.delete throws NOT_FOUND for a foreign row", async () => {
+    vi.mocked(db.userOwnsDynamoTest).mockResolvedValue(false);
+    const caller = appRouter.createCaller(authCtx(1));
+    await expect(caller.dynamo.delete({ id: 4 })).rejects.toThrow(/NOT_FOUND|not found/i);
+    expect(db.deleteDynamoTest).not.toHaveBeenCalled();
+  });
+
+  it("video.list throws NOT_FOUND for a foreign assessment", async () => {
+    vi.mocked(db.userOwnsAssessment).mockResolvedValue(false);
+    const caller = appRouter.createCaller(authCtx(1));
+    await expect(caller.video.list({ assessmentId: 2 })).rejects.toThrow(/NOT_FOUND|not found/i);
+    expect(db.getVideos).not.toHaveBeenCalled();
+  });
+
+  it("video.delete throws NOT_FOUND for a foreign video", async () => {
+    vi.mocked(db.userOwnsVideo).mockResolvedValue(false);
+    const caller = appRouter.createCaller(authCtx(1));
+    await expect(caller.video.delete({ id: 6 })).rejects.toThrow(/NOT_FOUND|not found/i);
+    expect(db.userOwnsVideo).toHaveBeenCalledWith(6, 1);
+    expect(db.deleteVideo).not.toHaveBeenCalled();
+  });
+});

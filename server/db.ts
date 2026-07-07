@@ -142,6 +142,24 @@ export async function userOwnsAnnotation(annotationId: number, userId: number): 
   return rows.length > 0;
 }
 
+export async function userOwnsDynamoTest(dynamoTestId: number, userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: dynamoTests.id }).from(dynamoTests)
+    .innerJoin(assessments, eq(dynamoTests.assessmentId, assessments.id))
+    .where(and(eq(dynamoTests.id, dynamoTestId), eq(assessments.userId, userId))).limit(1);
+  return rows.length > 0;
+}
+
+export async function userOwnsVideo(videoId: number, userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: videos.id }).from(videos)
+    .innerJoin(assessments, eq(videos.assessmentId, assessments.id))
+    .where(and(eq(videos.id, videoId), eq(assessments.userId, userId))).limit(1);
+  return rows.length > 0;
+}
+
 export async function createAssessment(data: InsertAssessment) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");

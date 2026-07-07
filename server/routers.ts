@@ -259,7 +259,10 @@ export const appRouter = router({
   }),
 
   dynamo: router({
-    list: protectedProcedure.input(z.object({ assessmentId: z.number() })).query(({ input }) => db.getDynamoTests(input.assessmentId)),
+    list: protectedProcedure.input(z.object({ assessmentId: z.number() })).query(async ({ ctx, input }) => {
+      if (!(await db.userOwnsAssessment(input.assessmentId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.getDynamoTests(input.assessmentId);
+    }),
     create: protectedProcedure.input(z.object({
       assessmentId: z.number(),
       joint: z.string().min(1),
@@ -280,7 +283,10 @@ export const appRouter = router({
       rightReps: z.number().optional().nullable(),
       notes: z.string().optional(),
       sortOrder: z.number().optional(),
-    })).mutation(({ input }) => db.createDynamoTest(input)),
+    })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsAssessment(input.assessmentId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.createDynamoTest(input);
+    }),
     update: protectedProcedure.input(z.object({
       id: z.number(),
       joint: z.string().optional(),
@@ -301,16 +307,26 @@ export const appRouter = router({
       rightReps: z.number().optional().nullable(),
       notes: z.string().optional().nullable(),
       sortOrder: z.number().optional(),
-    })).mutation(({ input }) => {
+    })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsDynamoTest(input.id, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
       const { id, ...data } = input;
       return db.updateDynamoTest(id, data);
     }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteDynamoTest(input.id)),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsDynamoTest(input.id, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.deleteDynamoTest(input.id);
+    }),
   }),
 
   video: router({
-    list: protectedProcedure.input(z.object({ assessmentId: z.number() })).query(({ input }) => db.getVideos(input.assessmentId)),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteVideo(input.id)),
+    list: protectedProcedure.input(z.object({ assessmentId: z.number() })).query(async ({ ctx, input }) => {
+      if (!(await db.userOwnsAssessment(input.assessmentId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.getVideos(input.assessmentId);
+    }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsVideo(input.id, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.deleteVideo(input.id);
+    }),
   }),
 
   practitioner: router({
