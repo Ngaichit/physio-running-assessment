@@ -94,9 +94,30 @@ export async function updatePatient(id: number, userId: number, data: Partial<In
   await db.update(patients).set(data).where(and(eq(patients.id, id), eq(patients.userId, userId)));
 }
 
+// Delete an assessment's children (annotations via screenshots, then screenshots,
+// dynamoTests, videos) and finally the assessment row. Caller verifies ownership.
+async function cascadeDeleteAssessment(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, assessmentId: number) {
+  const shots = await db.select({ id: screenshots.id }).from(screenshots).where(eq(screenshots.assessmentId, assessmentId));
+  for (const s of shots) {
+    await db.delete(annotations).where(eq(annotations.screenshotId, s.id));
+  }
+  await db.delete(screenshots).where(eq(screenshots.assessmentId, assessmentId));
+  await db.delete(dynamoTests).where(eq(dynamoTests.assessmentId, assessmentId));
+  await db.delete(videos).where(eq(videos.assessmentId, assessmentId));
+  await db.delete(assessments).where(eq(assessments.id, assessmentId));
+}
+
 export async function deletePatient(id: number, userId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
+  const owned = await db.select({ id: patients.id }).from(patients)
+    .where(and(eq(patients.id, id), eq(patients.userId, userId))).limit(1);
+  if (owned.length === 0) return;
+  const rows = await db.select({ id: assessments.id }).from(assessments)
+    .where(and(eq(assessments.patientId, id), eq(assessments.userId, userId)));
+  for (const a of rows) {
+    await cascadeDeleteAssessment(db, a.id);
+  }
   await db.delete(patients).where(and(eq(patients.id, id), eq(patients.userId, userId)));
 }
 
@@ -176,7 +197,10 @@ export async function updateAssessment(id: number, userId: number, data: Partial
 export async function deleteAssessment(id: number, userId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.delete(assessments).where(and(eq(assessments.id, id), eq(assessments.userId, userId)));
+  const owned = await db.select({ id: assessments.id }).from(assessments)
+    .where(and(eq(assessments.id, id), eq(assessments.userId, userId))).limit(1);
+  if (owned.length === 0) return;
+  await cascadeDeleteAssessment(db, id);
 }
 
 // ===== SCREENSHOTS =====
