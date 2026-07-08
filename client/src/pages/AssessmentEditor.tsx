@@ -56,6 +56,7 @@ export default function AssessmentEditor() {
   const [formData, setFormData] = useState<any>(null);
   const [injuries, setInjuries] = useState<Injury[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const dirtyTokenRef = useRef(0);
 
   const { data: assessment, isLoading } = trpc.assessment.get.useQuery({ id: assessmentId });
   const utils = trpc.useUtils();
@@ -86,10 +87,12 @@ export default function AssessmentEditor() {
   const updateField = useCallback((field: string, value: any) => {
     setFormData((prev: any) => prev ? { ...prev, [field]: value } : prev);
     setHasChanges(true);
+    dirtyTokenRef.current++;
   }, []);
 
   const handleSave = useCallback(async (opts?: { silent?: boolean }): Promise<boolean> => {
     if (!formData) return false;
+    const tokenAtSave = dirtyTokenRef.current;
     setSaving(true);
     try {
       const { id: _id, userId: _u, patientId: _p, createdAt: _c, updatedAt: _up, ...data } = formData;
@@ -97,7 +100,8 @@ export default function AssessmentEditor() {
       await updateAssessment.mutateAsync({ id: assessmentId, ...data, status: nextStatus, injuries: injuries.length > 0 ? injuries : null });
       utils.assessment.get.invalidate({ id: assessmentId });
       if (nextStatus !== formData.status) setFormData((prev: any) => prev ? { ...prev, status: nextStatus } : prev);
-      setHasChanges(false);
+      // Only clear the dirty flag if no edit landed while this save was in flight.
+      if (dirtyTokenRef.current === tokenAtSave) setHasChanges(false);
       if (!opts?.silent) toast.success("Assessment saved");
       return true;
     } catch (err: any) {
@@ -109,7 +113,7 @@ export default function AssessmentEditor() {
   }, [formData, injuries, assessmentId, updateAssessment, utils]);
 
   const handleGenerateReport = async () => {
-    const saved = await handleSave();
+    const saved = await handleSave({ silent: true });
     if (!saved) { toast.error("Couldn't save your changes — report was not generated."); return; }
     try {
       const result = await generateReport.mutateAsync({ assessmentId });
@@ -125,7 +129,7 @@ export default function AssessmentEditor() {
   };
 
   const navigateAway = useCallback(async (to: string) => {
-    if (hasChanges) { await handleSave({ silent: true }); }
+    if (hasChanges) { const ok = await handleSave({ silent: true }); if (!ok) return; }
     setLocation(to);
   }, [hasChanges, handleSave, setLocation]);
 
@@ -147,16 +151,19 @@ export default function AssessmentEditor() {
   const addInjury = () => {
     setInjuries(prev => [...prev, { description: "", date: "", status: "current" }]);
     setHasChanges(true);
+    dirtyTokenRef.current++;
   };
 
   const updateInjury = (index: number, field: string, value: string) => {
     setInjuries(prev => prev.map((inj, i) => i === index ? { ...inj, [field]: value } : inj));
     setHasChanges(true);
+    dirtyTokenRef.current++;
   };
 
   const removeInjury = (index: number) => {
     setInjuries(prev => prev.filter((_, i) => i !== index));
     setHasChanges(true);
+    dirtyTokenRef.current++;
   };
 
   const fileToBase64 = (file: File): Promise<string> => {
