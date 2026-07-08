@@ -14,9 +14,15 @@ type AuthedUser = NonNullable<TrpcContext["user"]>;
 
 function authCtx(userId = 1): TrpcContext {
   const user: AuthedUser = {
-    id: userId, openId: `u${userId}`, email: `u${userId}@x.com`, name: "U",
-    loginMethod: "password", role: "user",
-    createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
+    id: userId,
+    openId: `u${userId}`,
+    email: `u${userId}@x.com`,
+    name: "U",
+    loginMethod: "password",
+    role: "user",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastSignedIn: new Date(),
     passwordHash: null,
   };
   return {
@@ -33,8 +39,19 @@ const VALID_REPORT = {
   summary: "Summary.",
   metricsAnalysis: "metric line 1\nmetric line 2",
   asymmetryAnalysis: "asym line 1\nasym line 2",
-  problems: [{ title: "Reduced Shock Absorption", description: "Short clinical sentence.", findings: ["Overstride 15° -> Braking ↑"] }],
-  management: { gaitRelearning: "Cadence drill", mobilityExercises: "Calf stretch", strengthExercises: "Calf raise 3x15", runningProgramming: "Easy run 30 min" },
+  problems: [
+    {
+      title: "Reduced Shock Absorption",
+      description: "Short clinical sentence.",
+      findings: ["Overstride 15° -> Braking ↑"],
+    },
+  ],
+  management: {
+    gaitRelearning: "Cadence drill",
+    mobilityExercises: "Calf stretch",
+    strengthExercises: "Calf raise 3x15",
+    runningProgramming: "Easy run 30 min",
+  },
 };
 
 /** Shape an invokeLLM result the way the handler expects (OpenAI-ish). */
@@ -43,8 +60,15 @@ function llmResult(content: string) {
 }
 
 function primeDbForReportFlow() {
-  vi.mocked(db.getAssessment).mockResolvedValue({ id: 5, patientId: 3, assessmentDate: "2026-01-01" } as any);
-  vi.mocked(db.getPatient).mockResolvedValue({ id: 3, name: "Jane Doe" } as any);
+  vi.mocked(db.getAssessment).mockResolvedValue({
+    id: 5,
+    patientId: 3,
+    assessmentDate: "2026-01-01",
+  } as any);
+  vi.mocked(db.getPatient).mockResolvedValue({
+    id: 3,
+    name: "Jane Doe",
+  } as any);
   vi.mocked(db.getScreenshots).mockResolvedValue([] as any);
   vi.mocked(db.getAnnotations).mockResolvedValue([] as any);
   vi.mocked(db.getDynamoTests).mockResolvedValue([] as any);
@@ -59,7 +83,9 @@ beforeEach(() => {
 
 describe("ai.generateReport — validation + retry", () => {
   it("valid report on first attempt: stores it and returns { report }", async () => {
-    vi.mocked(invokeLLM).mockResolvedValue(llmResult(JSON.stringify(VALID_REPORT)));
+    vi.mocked(invokeLLM).mockResolvedValue(
+      llmResult(JSON.stringify(VALID_REPORT))
+    );
 
     const caller = appRouter.createCaller(authCtx(1));
     const res = await caller.ai.generateReport({ assessmentId: 5 });
@@ -87,12 +113,40 @@ describe("ai.generateReport — validation + retry", () => {
     expect(db.updateAssessment).toHaveBeenCalledTimes(1);
   });
 
-  it("schema-invalid output on both attempts: rejects and does NOT store", async () => {
-    // Parseable JSON but missing required fields → zReportLlmOutput fails both times.
-    vi.mocked(invokeLLM).mockResolvedValue(llmResult(JSON.stringify({ summary: "only summary" })));
+  it("coerces { title, content } object fields to plain strings (flatten)", async () => {
+    // Claude sometimes returns text fields as { content: "..." } objects despite the prompt.
+    const withObjectFields = {
+      ...VALID_REPORT,
+      background: { content: "flattened background" },
+      management: {
+        ...VALID_REPORT.management,
+        gaitRelearning: { content: "flattened cue" },
+      },
+    };
+    vi.mocked(invokeLLM).mockResolvedValue(
+      llmResult(JSON.stringify(withObjectFields))
+    );
 
     const caller = appRouter.createCaller(authCtx(1));
-    await expect(caller.ai.generateReport({ assessmentId: 5 })).rejects.toThrow(/invalid report after two attempts/i);
+    const res = await caller.ai.generateReport({ assessmentId: 5 });
+
+    // Coerced before validation, so it validated and stored as flat strings.
+    expect(res.report.background).toBe("flattened background");
+    expect((res.report.management as any).gaitRelearning).toBe("flattened cue");
+    const [, , data] = vi.mocked(db.updateAssessment).mock.calls[0];
+    expect((data as any).reportJson.background).toBe("flattened background");
+  });
+
+  it("schema-invalid output on both attempts: rejects and does NOT store", async () => {
+    // Parseable JSON but missing required fields → zReportLlmOutput fails both times.
+    vi.mocked(invokeLLM).mockResolvedValue(
+      llmResult(JSON.stringify({ summary: "only summary" }))
+    );
+
+    const caller = appRouter.createCaller(authCtx(1));
+    await expect(caller.ai.generateReport({ assessmentId: 5 })).rejects.toThrow(
+      /invalid report after two attempts/i
+    );
 
     expect(invokeLLM).toHaveBeenCalledTimes(2);
     expect(db.updateAssessment).not.toHaveBeenCalled();

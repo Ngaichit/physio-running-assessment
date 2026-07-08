@@ -4,7 +4,38 @@ import { zReportData, zReportLlmOutput } from "./reportSchema";
 
 describe("zReportData", () => {
   it("accepts a full report", () => {
-    const r = { background: "b", impressionFromTesting: "i", summary: "s", problems: [{ title: "t", description: "d", findings: ["f"] }], management: { runningCues: "", gaitRelearning: "g", mobilityExercises: "m", strengthExercises: "s", runningProgramming: "r" }, metricsRatings: [{ metricName: "Cadence", measuredValue: 160, unit: "spm", rating: "Low", notes: "n" }], asymmetryData: [{ metricName: "Hip drop", leftValue: 4, rightValue: 8, difference: 4, percentDiff: 50, rating: "mod" }] };
+    const r = {
+      background: "b",
+      impressionFromTesting: "i",
+      summary: "s",
+      problems: [{ title: "t", description: "d", findings: ["f"] }],
+      management: {
+        runningCues: "",
+        gaitRelearning: "g",
+        mobilityExercises: "m",
+        strengthExercises: "s",
+        runningProgramming: "r",
+      },
+      metricsRatings: [
+        {
+          metricName: "Cadence",
+          measuredValue: 160,
+          unit: "spm",
+          rating: "Low",
+          notes: "n",
+        },
+      ],
+      asymmetryData: [
+        {
+          metricName: "Hip drop",
+          leftValue: 4,
+          rightValue: 8,
+          difference: 4,
+          percentDiff: 50,
+          rating: "mod",
+        },
+      ],
+    };
     expect(zReportData.safeParse(r).success).toBe(true);
   });
   it("accepts a partial (manually-edited) report and preserves unknown keys", () => {
@@ -28,7 +59,20 @@ describe("zReportLlmOutput", () => {
     expect(zReportLlmOutput.safeParse({ summary: "s" }).success).toBe(false);
   });
   it("accepts a complete LLM output", () => {
-    const r = { background: "b", impressionFromTesting: "i", summary: "s", metricsAnalysis: "m", asymmetryAnalysis: "a", problems: [{ title: "t", description: "d", findings: ["f"] }], management: { gaitRelearning: "g", mobilityExercises: "m", strengthExercises: "s", runningProgramming: "r" } };
+    const r = {
+      background: "b",
+      impressionFromTesting: "i",
+      summary: "s",
+      metricsAnalysis: "m",
+      asymmetryAnalysis: "a",
+      problems: [{ title: "t", description: "d", findings: ["f"] }],
+      management: {
+        gaitRelearning: "g",
+        mobilityExercises: "m",
+        strengthExercises: "s",
+        runningProgramming: "r",
+      },
+    };
     expect(zReportLlmOutput.safeParse(r).success).toBe(true);
   });
 });

@@ -643,12 +643,12 @@ export const appRouter = router({
       const prompt = buildReportPrompt(patient, assessment, annotationsList, metricsRatings, asymmetryData, dynamoTestData);
 
       const generateOnce = async (): Promise<any> => {
-      const result = await invokeLLM({
-        timeoutMs: 120000,
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert sports physiotherapist report writer. Generate a comprehensive, professional running assessment report based on a 10-metric running analysis system. The report should be well-structured, clinically accurate, and written in a clear, professional tone. Include specific findings, clinical reasoning, and actionable recommendations.
+        const result = await invokeLLM({
+          timeoutMs: 120000,
+          messages: [
+            {
+              role: "system",
+              content: `You are an expert sports physiotherapist report writer. Generate a comprehensive, professional running assessment report based on a 10-metric running analysis system. The report should be well-structured, clinically accurate, and written in a clear, professional tone. Include specific findings, clinical reasoning, and actionable recommendations.
 
 OUTPUT FORMAT — STRICT JSON SCHEMA:
 - background: plain text string (single paragraph of prose)
@@ -689,51 +689,51 @@ IMPORTANT FORMATTING RULES:
 
 4. Write background and impressionFromTesting in natural prose paragraphs.
 5. CRITICAL: Your entire response MUST be a single valid JSON object — start with { and end with }. Do NOT wrap it in markdown code fences (no \`\`\`json ... \`\`\`). Do NOT include any text before or after the JSON.`
-          },
-          { role: "user", content: prompt }
-        ],
-      });
+            },
+            { role: "user", content: prompt }
+          ],
+        });
 
-      const reportContent = result.choices[0]?.message?.content;
-      const rawText = typeof reportContent === "string" ? reportContent : JSON.stringify(reportContent);
-      // Strip markdown code fences if present (Claude often wraps JSON in ```json ... ```)
-      let reportText = rawText.trim();
-      const fenceMatch = reportText.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
-      if (fenceMatch) reportText = fenceMatch[1].trim();
-      // If still not pure JSON, try to extract the first {...} block
-      if (!reportText.startsWith("{")) {
-        const jsonMatch = reportText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) reportText = jsonMatch[0];
-      }
-      const parsed = JSON.parse(reportText); // may throw
-
-      // Defensive: flatten any { title, content } objects to plain strings.
-      // Claude sometimes returns text-section fields as objects despite the schema.
-      const flattenToString = (v: any): any => {
-        if (v == null) return v;
-        if (typeof v === "string") return v;
-        if (typeof v === "object" && !Array.isArray(v)) {
-          if (typeof v.content === "string") return v.content;
-          if (typeof v.text === "string") return v.text;
+        const reportContent = result.choices[0]?.message?.content;
+        const rawText = typeof reportContent === "string" ? reportContent : JSON.stringify(reportContent);
+        // Strip markdown code fences if present (Claude often wraps JSON in ```json ... ```)
+        let reportText = rawText.trim();
+        const fenceMatch = reportText.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+        if (fenceMatch) reportText = fenceMatch[1].trim();
+        // If still not pure JSON, try to extract the first {...} block
+        if (!reportText.startsWith("{")) {
+          const jsonMatch = reportText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) reportText = jsonMatch[0];
         }
-        return v;
-      };
-      const stringFields = ["background", "impressionFromTesting", "summary", "metricsAnalysis", "asymmetryAnalysis"] as const;
-      for (const f of stringFields) {
-        if (parsed[f] != null) parsed[f] = flattenToString(parsed[f]);
-      }
-      if (parsed.management && typeof parsed.management === "object") {
-        for (const k of Object.keys(parsed.management)) {
-          parsed.management[k] = flattenToString(parsed.management[k]);
-        }
-      }
+        const parsed = JSON.parse(reportText); // may throw
 
-      // Validate raw LLM output against the shared schema (server provides metricsRatings, so it's not required here)
-      const validation = zReportLlmOutput.safeParse(parsed);
-      if (!validation.success) {
-        throw new Error("LLM output failed schema validation: " + validation.error.message.slice(0, 300));
-      }
-      return parsed;
+        // Defensive: flatten any { title, content } objects to plain strings.
+        // Claude sometimes returns text-section fields as objects despite the schema.
+        const flattenToString = (v: any): any => {
+          if (v == null) return v;
+          if (typeof v === "string") return v;
+          if (typeof v === "object" && !Array.isArray(v)) {
+            if (typeof v.content === "string") return v.content;
+            if (typeof v.text === "string") return v.text;
+          }
+          return v;
+        };
+        const stringFields = ["background", "impressionFromTesting", "summary", "metricsAnalysis", "asymmetryAnalysis"] as const;
+        for (const f of stringFields) {
+          if (parsed[f] != null) parsed[f] = flattenToString(parsed[f]);
+        }
+        if (parsed.management && typeof parsed.management === "object") {
+          for (const k of Object.keys(parsed.management)) {
+            parsed.management[k] = flattenToString(parsed.management[k]);
+          }
+        }
+
+        // Validate raw LLM output against the shared schema (server provides metricsRatings, so it's not required here)
+        const validation = zReportLlmOutput.safeParse(parsed);
+        if (!validation.success) {
+          throw new Error("LLM output failed schema validation: " + validation.error.message.slice(0, 300));
+        }
+        return parsed;
       };
 
       // Generate + validate with one retry on any parse/validation failure.
@@ -785,7 +785,13 @@ IMPORTANT FORMATTING RULES:
       }
 
       // Lenient final validation of the fully-merged object (preserves unknown keys).
-      const finalReport = zReportData.parse(parsedReport);
+      // Fail-soft: a paid LLM report must never be dropped just because a server-built
+      // row (metricsRatings/asymmetryData/dynamoTests) doesn't match the lenient schema.
+      const finalValidation = zReportData.safeParse(parsedReport);
+      if (!finalValidation.success) {
+        console.warn("[generateReport] merged report failed lenient validation; storing as-is:", finalValidation.error.message.slice(0, 300));
+      }
+      const finalReport = finalValidation.success ? finalValidation.data : parsedReport;
 
       await db.updateAssessment(input.assessmentId, ctx.user.id, {
         aiGeneratedReport: JSON.stringify(finalReport),
