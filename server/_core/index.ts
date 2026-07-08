@@ -44,7 +44,8 @@ async function startServer() {
         imgSrc: ["'self'", "data:", "blob:"],
         // pdf.js worker + report print window need blob:; scripts are bundled.
         scriptSrc: ["'self'", "'unsafe-inline'", "blob:"],
-        connectSrc: ["'self'"],
+        // fetch(data:) is used to re-encode inline screenshot images with annotations
+        connectSrc: ["'self'", "data:"],
         workerSrc: ["'self'", "blob:"],
         objectSrc: ["'none'"],
         frameAncestors: ["'self'"],
