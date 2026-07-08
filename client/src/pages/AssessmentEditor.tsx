@@ -56,8 +56,9 @@ export default function AssessmentEditor() {
   const [formData, setFormData] = useState<any>(null);
   const [injuries, setInjuries] = useState<Injury[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const dirtyTokenRef = useRef(0);
 
-  const { data: assessment, isLoading } = trpc.assessment.get.useQuery({ id: assessmentId });
+  const { data: assessment, isLoading, isError, refetch } = trpc.assessment.get.useQuery({ id: assessmentId });
   const utils = trpc.useUtils();
   const updateAssessment = trpc.assessment.update.useMutation();
   const generateReport = trpc.ai.generateReport.useMutation();
@@ -86,31 +87,40 @@ export default function AssessmentEditor() {
   const updateField = useCallback((field: string, value: any) => {
     setFormData((prev: any) => prev ? { ...prev, [field]: value } : prev);
     setHasChanges(true);
+    dirtyTokenRef.current++;
   }, []);
 
-  const handleSave = async () => {
-    if (!formData) return;
+  const handleSave = useCallback(async (opts?: { silent?: boolean }): Promise<boolean> => {
+    if (!formData) return false;
+    const tokenAtSave = dirtyTokenRef.current;
     setSaving(true);
     try {
       const { id: _id, userId: _u, patientId: _p, createdAt: _c, updatedAt: _up, ...data } = formData;
-      await updateAssessment.mutateAsync({ id: assessmentId, ...data, injuries: injuries.length > 0 ? injuries : null });
+      const nextStatus = formData.status === "draft" ? "in_progress" : formData.status;
+      await updateAssessment.mutateAsync({ id: assessmentId, ...data, status: nextStatus, injuries: injuries.length > 0 ? injuries : null });
       utils.assessment.get.invalidate({ id: assessmentId });
-      setHasChanges(false);
-      toast.success("Assessment saved");
+      if (nextStatus !== formData.status) setFormData((prev: any) => prev ? { ...prev, status: nextStatus } : prev);
+      // Only clear the dirty flag if no edit landed while this save was in flight.
+      if (dirtyTokenRef.current === tokenAtSave) setHasChanges(false);
+      if (!opts?.silent) toast.success("Assessment saved");
+      return true;
     } catch (err: any) {
       toast.error(err.message || "Failed to save");
+      return false;
     } finally {
       setSaving(false);
     }
-  };
+  }, [formData, injuries, assessmentId, updateAssessment, utils]);
 
   const handleGenerateReport = async () => {
-    // Save first
-    await handleSave();
+    const saved = await handleSave({ silent: true });
+    if (!saved) { toast.error("Couldn't save your changes — report was not generated."); return; }
     try {
       const result = await generateReport.mutateAsync({ assessmentId });
       utils.assessment.get.invalidate({ id: assessmentId });
-      setFormData((prev: any) => prev ? { ...prev, aiGeneratedReport: JSON.stringify(result.report), reportJson: result.report } : prev);
+      setFormData((prev: any) => prev ? { ...prev, aiGeneratedReport: JSON.stringify(result.report), reportJson: result.report, status: "completed" } : prev);
+      // persist the completed status
+      updateAssessment.mutate({ id: assessmentId, status: "completed" });
       toast.success("Report generated successfully");
       setActiveTab("report");
     } catch (err: any) {
@@ -118,19 +128,42 @@ export default function AssessmentEditor() {
     }
   };
 
+  const navigateAway = useCallback(async (to: string) => {
+    if (hasChanges) { const ok = await handleSave({ silent: true }); if (!ok) return; }
+    setLocation(to);
+  }, [hasChanges, handleSave, setLocation]);
+
+  // Debounced autosave: save silently 3s after the last edit.
+  useEffect(() => {
+    if (!formData || !hasChanges || saving) return;
+    const t = setTimeout(() => { handleSave({ silent: true }); }, 3000);
+    return () => clearTimeout(t);
+  }, [formData, injuries, hasChanges, saving, handleSave]);
+
+  // Warn on browser refresh/close when there are unsaved changes.
+  useEffect(() => {
+    if (!hasChanges) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasChanges]);
+
   const addInjury = () => {
     setInjuries(prev => [...prev, { description: "", date: "", status: "current" }]);
     setHasChanges(true);
+    dirtyTokenRef.current++;
   };
 
   const updateInjury = (index: number, field: string, value: string) => {
     setInjuries(prev => prev.map((inj, i) => i === index ? { ...inj, [field]: value } : inj));
     setHasChanges(true);
+    dirtyTokenRef.current++;
   };
 
   const removeInjury = (index: number) => {
     setInjuries(prev => prev.filter((_, i) => i !== index));
     setHasChanges(true);
+    dirtyTokenRef.current++;
   };
 
   const fileToBase64 = (file: File): Promise<string> => {
@@ -149,6 +182,18 @@ export default function AssessmentEditor() {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
 
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" onClick={() => setLocation("/")}><ArrowLeft className="h-4 w-4 mr-2" />Back</Button>
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+          <p className="text-sm text-muted-foreground">Couldn't load this assessment. Check your connection and try again.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!assessment || !formData) {
     return (
       <div className="space-y-4">
@@ -161,12 +206,12 @@ export default function AssessmentEditor() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
-        <Button variant="ghost" size="sm" onClick={() => setLocation(`/patient/${assessment.patientId}`)} className="text-muted-foreground">
+        <Button variant="ghost" size="sm" onClick={() => navigateAway(`/patient/${assessment.patientId}`)} className="text-muted-foreground">
           <ArrowLeft className="h-4 w-4 mr-1" />Back
         </Button>
         <div className="flex items-center gap-2">
           {hasChanges && <Badge variant="outline" className="text-yellow-600 border-yellow-300">Unsaved changes</Badge>}
-          <Button variant="outline" size="sm" onClick={handleSave} disabled={saving || !hasChanges}>
+          <Button variant="outline" size="sm" onClick={() => handleSave()} disabled={saving || !hasChanges}>
             {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
             Save
           </Button>

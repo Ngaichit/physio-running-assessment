@@ -3,6 +3,7 @@ export const ENV = {
   databaseUrl: process.env.DATABASE_URL ?? "",
   isProduction: process.env.NODE_ENV === "production",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
+  anthropicModel: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
   adminEmail: process.env.ADMIN_EMAIL ?? "",
   adminPassword: process.env.ADMIN_PASSWORD ?? "",
   inviteCode: process.env.INVITE_CODE ?? "",

@@ -11,6 +11,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { isPublicHttpUrl } from "./ssrfGuard";
 import { sdk } from "./sdk";
+import { pingDatabase } from "../db";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -65,6 +66,14 @@ async function startServer() {
   // OAuth callback under /api/oauth/callback
   registerAuthRoutes(app);
 
+  // Health check — registered before tRPC and the SPA fallback so neither can
+  // swallow it. Railway polls this; a DB ping failure reports degraded (503).
+  app.get("/healthz", async (_req, res) => {
+    const dbOk = await pingDatabase();
+    if (dbOk) { res.status(200).json({ status: "ok" }); }
+    else { res.status(503).json({ status: "degraded", db: false }); }
+  });
+
   // PDF proxy — fetches remote PDFs and serves them with proper headers
   // This avoids CORS issues when pdfjs-dist tries to load S3-hosted PDFs
   app.get("/api/pdf-proxy", async (req, res) => {
@@ -110,6 +119,14 @@ async function startServer() {
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      onError({ error, path, type }) {
+        // Log server-side failures with context. Hook Sentry.captureException(error) here later.
+        if (error.code === "INTERNAL_SERVER_ERROR") {
+          console.error(`[trpc] ${type} ${path ?? "<no-path>"} failed:`, error.message, error.stack);
+        } else {
+          console.warn(`[trpc] ${type} ${path ?? "<no-path>"} -> ${error.code}: ${error.message}`);
+        }
+      },
     })
   );
   // development mode uses Vite, production mode uses static files
@@ -119,13 +136,15 @@ async function startServer() {
     serveStatic(app);
   }
 
+  const isProd = process.env.NODE_ENV === "production";
   const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
-
-  if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
-  }
-
+  // In production, bind the injected PORT directly — Railway only routes to it.
+  // Scanning for a different port would make the app silently unreachable.
+  const port = isProd ? preferredPort : await findAvailablePort(preferredPort);
+  server.on("error", (err) => {
+    console.error(`[server] failed to bind port ${port}:`, err);
+    process.exit(1);
+  });
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
   });

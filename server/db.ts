@@ -1,4 +1,4 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users,
@@ -25,6 +25,20 @@ export async function getDb() {
     }
   }
   return _db;
+}
+
+export async function pingDatabase(): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  try {
+    await Promise.race([
+      db.execute(sql`SELECT 1`),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("db ping timeout")), 4000)),
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -78,7 +92,7 @@ export async function getPatient(id: number, userId: number) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(patients).where(and(eq(patients.id, id), eq(patients.userId, userId))).limit(1);
-  return result[0];
+  return result[0] ?? null;
 }
 
 export async function createPatient(data: InsertPatient) {
@@ -142,7 +156,7 @@ export async function getAssessment(id: number, userId: number) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(assessments).where(and(eq(assessments.id, id), eq(assessments.userId, userId))).limit(1);
-  return result[0];
+  return result[0] ?? null;
 }
 
 // ===== OWNERSHIP CHECKS (multi-tenant guards) =====
@@ -378,7 +392,7 @@ export async function getPractitioner(id: number, userId: number) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(practitioners).where(and(eq(practitioners.id, id), eq(practitioners.userId, userId))).limit(1);
-  return result[0];
+  return result[0] ?? null;
 }
 
 export async function getDefaultPractitioner(userId: number) {
@@ -389,7 +403,7 @@ export async function getDefaultPractitioner(userId: number) {
   if (result.length === 0) {
     result = await db.select().from(practitioners).where(eq(practitioners.userId, userId)).orderBy(practitioners.id).limit(1);
   }
-  return result[0];
+  return result[0] ?? null;
 }
 
 export async function createPractitioner(data: InsertPractitioner) {
