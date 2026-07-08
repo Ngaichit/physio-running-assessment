@@ -1,4 +1,5 @@
 import "dotenv/config";
+import compression from "compression";
 import express from "express";
 import helmet from "helmet";
 import { createServer } from "http";
@@ -59,6 +60,10 @@ async function startServer() {
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: false,
   }));
+  // Compress all responses (incl. tRPC JSON payloads with base64 data) — big win
+  // for Hong Kong users on higher-latency links. Placed after helmet and before
+  // the body parsers / routes so every downstream response is compressed.
+  app.use(compression());
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));

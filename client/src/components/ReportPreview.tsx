@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Loader2, FileDown, Wand2, RefreshCw, Pencil, Eye, Save, Plus, Trash2 } from "lucide-react";
-import { useState, useRef, useMemo, useCallback, useEffect } from "react";
+import { useState, useRef, useMemo, useCallback, useEffect, lazy, Suspense } from "react";
 import { toast } from "sonner";
-import PdfPageRenderer, { renderPdfToBase64Images } from "@/components/PdfPageRenderer";
+// Lazy-load pdfjs (~1.4MB) — only pulled in when a PDF is actually previewed or
+// exported, so it lands in its own chunk instead of the main bundle.
+const PdfPageRenderer = lazy(() => import("@/components/PdfPageRenderer"));
 import { escapeHtml } from "@/report/escape";
 // Plain text renderer - replaces Streamdown to prevent markdown/code rendering
 // Flatten any value to a plain string. Handles cases where the AI returned
@@ -758,6 +760,9 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
       // (pdfjs-dist — no server pdftoppm dependency). Failures surface as toasts.
       let inbodyImages: string[] = [];
       let vo2Images: string[] = [];
+      // Dynamic import keeps pdfjs out of the main bundle — loaded once here and
+      // reused for both the InBody and VO2 renders below.
+      const { renderPdfToBase64Images } = await import("@/components/PdfPageRenderer");
       if (formData?.inbodyFileUrl) {
         try {
           inbodyImages = await renderPdfToBase64Images(formData.inbodyFileUrl, 1.5, 5);
@@ -1503,7 +1508,9 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
               <CardTitle className="text-base text-[#1A2744]">InBody Body Composition Report</CardTitle>
             </CardHeader>
             <CardContent>
-              <PdfPageRenderer url={formData.inbodyFileUrl} maxPages={5} />
+              <Suspense fallback={<div className="text-xs text-muted-foreground py-4">Loading PDF viewer…</div>}>
+                <PdfPageRenderer url={formData.inbodyFileUrl} maxPages={5} />
+              </Suspense>
               {formData.inbodyNotes && (
                 <div className="mt-3 text-sm">
                   <p className="font-medium mb-1">Notes</p>
@@ -1521,7 +1528,9 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
               <CardTitle className="text-base text-[#1A2744]">VO2 Master Cardiorespiratory Report</CardTitle>
             </CardHeader>
             <CardContent>
-              <PdfPageRenderer url={formData.vo2FileUrl} maxPages={5} />
+              <Suspense fallback={<div className="text-xs text-muted-foreground py-4">Loading PDF viewer…</div>}>
+                <PdfPageRenderer url={formData.vo2FileUrl} maxPages={5} />
+              </Suspense>
               {formData.vo2Notes && (
                 <div className="mt-3 text-sm">
                   <p className="font-medium mb-1">Notes</p>
