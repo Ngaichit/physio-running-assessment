@@ -25,7 +25,14 @@ describe("upload.uploadFile", () => {
 
   it("rejects a disallowed content type", async () => {
     const caller = appRouter.createCaller(authCtx(7));
-    await expect(caller.upload.uploadFile({ folder: "screenshots", fileName: "x.html", base64Data: "AAAA", contentType: "text/html" })).rejects.toThrow(/content type/i);
+    await expect(caller.upload.uploadFile({ folder: "screenshots", fileName: "x.html", base64Data: "AAAA", contentType: "text/html" })).rejects.toThrow(/unsupported file type/i);
+  });
+
+  it("rejects a file over the 15 MB cap", async () => {
+    const caller = appRouter.createCaller(authCtx(7));
+    // base64 of a >15MB buffer
+    const big = Buffer.alloc(16 * 1024 * 1024).toString("base64");
+    await expect(caller.upload.uploadFile({ folder: "inbody", fileName: "big.pdf", base64Data: big, contentType: "application/pdf" })).rejects.toThrow(/15 MB|limit/i);
   });
 
   it("rejects a disallowed folder", async () => {

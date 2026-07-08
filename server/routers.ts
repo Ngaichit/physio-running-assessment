@@ -386,7 +386,7 @@ export const appRouter = router({
     })).mutation(async ({ ctx, input }) => {
       const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
       if (!ALLOWED.has(input.contentType)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: `Unsupported content type: ${input.contentType}` });
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Unsupported file type "${input.contentType}". Please upload a PDF or JPEG/PNG/WebP image.` });
       }
       const buffer = Buffer.from(input.base64Data, "base64");
       const MAX_BYTES = 15 * 1024 * 1024;
