@@ -1,4 +1,5 @@
 import { COOKIE_NAME } from "@shared/const";
+import { zReportData } from "@shared/reportSchema";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
@@ -98,7 +99,11 @@ export const appRouter = router({
       assessmentRecording: z.string().optional().nullable(),
       followUpMonths: z.number().optional().nullable(),
       aiGeneratedReport: z.string().optional().nullable(),
-      reportJson: z.any().optional().nullable(),
+      // Validate stored report against the canonical (lenient) schema. Wrapped in
+      // z.unknown().pipe(...) so the client-facing input type stays permissive
+      // (it was z.any() before) while the server still validates + passes through
+      // unknown keys (forward-compat, no data loss on manual re-save).
+      reportJson: z.unknown().pipe(zReportData).nullable().optional(),
       practitionerId: z.number().optional().nullable(),
     })).mutation(({ ctx, input }) => {
       const { id, ...data } = input;
