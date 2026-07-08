@@ -366,7 +366,8 @@ export default function AssessmentEditor() {
                   try {
                     const base64 = await fileToBase64(file);
                     const result = await uploadFile.mutateAsync({
-                      key: `inbody/${assessmentId}/${Date.now()}-${file.name}`,
+                      folder: "inbody",
+                      fileName: `${Date.now()}-${file.name}`,
                       base64Data: base64,
                       contentType: file.type,
                     });
@@ -408,7 +409,8 @@ export default function AssessmentEditor() {
                   try {
                     const base64 = await fileToBase64(file);
                     const result = await uploadFile.mutateAsync({
-                      key: `vo2/${assessmentId}/${Date.now()}-${file.name}`,
+                      folder: "vo2",
+                      fileName: `${Date.now()}-${file.name}`,
                       base64Data: base64,
                       contentType: file.type,
                     });

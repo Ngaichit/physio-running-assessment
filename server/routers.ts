@@ -379,13 +379,23 @@ export const appRouter = router({
       return { key, uploadKey: key };
     }),
     uploadFile: protectedProcedure.input(z.object({
-      key: z.string(),
+      folder: z.enum(["screenshots", "inbody", "vo2", "videos", "uploads"]),
+      fileName: z.string().min(1),
       base64Data: z.string(),
       contentType: z.string(),
-    })).mutation(async ({ input }) => {
+    })).mutation(async ({ ctx, input }) => {
+      const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+      if (!ALLOWED.has(input.contentType)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Unsupported content type: ${input.contentType}` });
+      }
       const buffer = Buffer.from(input.base64Data, "base64");
-      const result = await storagePut(input.key, buffer, input.contentType);
-      return result;
+      const MAX_BYTES = 15 * 1024 * 1024;
+      if (buffer.length > MAX_BYTES) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "File exceeds the 15 MB limit." });
+      }
+      const ext = (input.fileName.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const key = `${input.folder}/${ctx.user.id}/${nanoid()}.${ext}`;
+      return storagePut(key, buffer, input.contentType);
     }),
   }),
 

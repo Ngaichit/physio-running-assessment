@@ -209,7 +209,8 @@ export default function VideoAnalysis({ assessmentId }: Props) {
       const timestamp = video.currentTime;
 
       const result = await uploadFile.mutateAsync({
-        key: `screenshots/${assessmentId}/${Date.now()}.jpg`,
+        folder: "screenshots",
+        fileName: `${Date.now()}.jpg`,
         base64Data: base64,
         contentType: "image/jpeg",
       });
