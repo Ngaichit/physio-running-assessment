@@ -418,7 +418,7 @@ function generateAsymmetryChartSVG(asymmetryData: AsymmetryItem[]): string {
     out += `<text x="${width - 8}" y="${y + rowH / 2 + 9}" text-anchor="end" dominant-baseline="middle" font-size="10" font-family="Inter, sans-serif" fill="${BRAND.gray}" font-weight="500">${pctText}</text>`;
   });
 
-  return `<svg viewBox="0 0 ${width} ${height - footerH + 8}" width="100%" height="auto" style="max-width:${width}px" xmlns="http://www.w3.org/2000/svg">${out}</svg>`;
+  return `<svg viewBox="0 0 ${width} ${height - footerH + 8}" width="100%" style="max-width:${width}px;height:auto" xmlns="http://www.w3.org/2000/svg">${out}</svg>`;
 }
 
 interface Props {

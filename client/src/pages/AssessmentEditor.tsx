@@ -58,7 +58,7 @@ export default function AssessmentEditor() {
   const [hasChanges, setHasChanges] = useState(false);
   const dirtyTokenRef = useRef(0);
 
-  const { data: assessment, isLoading } = trpc.assessment.get.useQuery({ id: assessmentId });
+  const { data: assessment, isLoading, isError, refetch } = trpc.assessment.get.useQuery({ id: assessmentId });
   const utils = trpc.useUtils();
   const updateAssessment = trpc.assessment.update.useMutation();
   const generateReport = trpc.ai.generateReport.useMutation();
@@ -180,6 +180,18 @@ export default function AssessmentEditor() {
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+  }
+
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" onClick={() => setLocation("/")}><ArrowLeft className="h-4 w-4 mr-2" />Back</Button>
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+          <p className="text-sm text-muted-foreground">Couldn't load this assessment. Check your connection and try again.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+        </div>
+      </div>
+    );
   }
 
   if (!assessment || !formData) {

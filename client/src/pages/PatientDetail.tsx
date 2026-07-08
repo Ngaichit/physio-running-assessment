@@ -21,7 +21,7 @@ export default function PatientDetail() {
   const [newAssessmentOpen, setNewAssessmentOpen] = useState(false);
   const [assessmentDate, setAssessmentDate] = useState(new Date().toISOString().split("T")[0]);
 
-  const { data: patient, isLoading: patientLoading } = trpc.patient.get.useQuery({ id: patientId });
+  const { data: patient, isLoading: patientLoading, isError: patientError, refetch: refetchPatient } = trpc.patient.get.useQuery({ id: patientId });
   const { data: assessmentsList, isLoading: assessmentsLoading } = trpc.assessment.list.useQuery({ patientId });
   const utils = trpc.useUtils();
 
@@ -62,6 +62,18 @@ export default function PatientDetail() {
 
   if (patientLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+  }
+
+  if (patientError) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" onClick={() => setLocation("/")}><ArrowLeft className="h-4 w-4 mr-2" />Back</Button>
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+          <p className="text-sm text-muted-foreground">Couldn't load this patient. Check your connection and try again.</p>
+          <Button variant="outline" size="sm" onClick={() => refetchPatient()}>Retry</Button>
+        </div>
+      </div>
+    );
   }
 
   if (!patient) {

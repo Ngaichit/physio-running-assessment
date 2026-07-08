@@ -19,7 +19,7 @@ export default function Home() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ name: "", dateOfBirth: "", gender: "", height: "", weight: "", email: "", phone: "", notes: "" });
 
-  const { data: patients, isLoading } = trpc.patient.list.useQuery();
+  const { data: patients, isLoading, isError, refetch } = trpc.patient.list.useQuery();
   const utils = trpc.useUtils();
   const createPatient = trpc.patient.create.useMutation({
     onSuccess: () => {
@@ -138,6 +138,11 @@ export default function Home() {
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : isError ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+          <p className="text-sm text-muted-foreground">Couldn't load your patients. Check your connection and try again.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
         </div>
       ) : filteredPatients.length === 0 ? (
         <Card className="border-dashed">
