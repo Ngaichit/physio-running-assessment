@@ -1,25 +1,22 @@
-// Returns true only for http(s) URLs whose host is not localhost, a loopback,
-// or a private / link-local IP literal. Blocks the common SSRF targets
-// (cloud metadata at 169.254.169.254, internal services on 10/172.16/192.168).
+// Returns true only for http(s) URLs with a DOMAIN-NAME host. This app fetches
+// PDFs only from named hosts (S3/CDN), never IP literals, so we reject every
+// IP-literal form — which closes SSRF encoding bypasses (decimal/hex/octal IPv4,
+// partial-dotted like 127.1, and IPv6 literals incl. ::1, fc00::/7, fe80::/10)
+// as well as the loopback/private/link-local(metadata) ranges in every encoding.
+// KNOWN LIMITATION: does not resolve DNS, so a public hostname that resolves to
+// a private IP (DNS rebinding) is not blocked — a defense-in-depth follow-up.
 export function isPublicHttpUrl(raw: string): boolean {
   let u: URL;
   try { u = new URL(raw); } catch { return false; }
   if (u.protocol !== "http:" && u.protocol !== "https:") return false;
 
   const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (host === "localhost" || host.endsWith(".localhost")) return false;
-  if (host === "::1" || host === "0.0.0.0") return false;
+  if (!host) return false;
 
-  // IPv4 literal checks
-  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (m) {
-    const a = Number(m[1]), b = Number(m[2]);
-    if (a === 127) return false;                 // loopback
-    if (a === 10) return false;                  // private
-    if (a === 192 && b === 168) return false;    // private
-    if (a === 172 && b >= 16 && b <= 31) return false; // private
-    if (a === 169 && b === 254) return false;    // link-local / metadata
-    if (a === 0) return false;
-  }
+  if (host.includes(":")) return false;        // any IPv6 literal
+  if (/^0x/i.test(host)) return false;          // hex IPv4 (0x7f000001)
+  if (/^[0-9.]+$/.test(host)) return false;     // any all-numeric/dotted IPv4 form (incl. decimal 2130706433, 127.1, private ranges)
+  if (host === "localhost" || host.endsWith(".localhost")) return false;
+
   return true;
 }
