@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { zReportData, zReportLlmOutput } from "./reportSchema";
 
 describe("zReportData", () => {
@@ -10,9 +11,15 @@ describe("zReportData", () => {
     const r = { summary: "only summary", somethingNew: 1 } as any;
     const parsed = zReportData.safeParse(r);
     expect(parsed.success).toBe(true);
+    expect((parsed.data as any).somethingNew).toBe(1);
   });
   it("rejects a totally wrong type", () => {
     expect(zReportData.safeParse("not an object").success).toBe(false);
+  });
+  it("validates in the piped router form (z.unknown().pipe(...).nullable().optional())", () => {
+    const piped = z.unknown().pipe(zReportData).nullable().optional();
+    expect(piped.safeParse("nope").success).toBe(false);
+    expect(piped.safeParse(null).success).toBe(true);
   });
 });
 

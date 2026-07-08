@@ -57,6 +57,7 @@ export type InvokeParams = {
   tool_choice?: ToolChoice;
   maxTokens?: number;
   max_tokens?: number;
+  timeoutMs?: number;
   outputSchema?: OutputSchema;
   output_schema?: OutputSchema;
   responseFormat?: ResponseFormat;
@@ -204,13 +205,13 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
 
-  const { messages, tools, toolChoice, tool_choice, maxTokens, max_tokens } = params;
+  const { messages, tools, toolChoice, tool_choice, maxTokens, max_tokens, timeoutMs } = params;
 
   const client = getClient();
   const { system, messages: anthropicMessages } = convertMessages(messages);
 
   const requestParams: Anthropic.MessageCreateParamsNonStreaming = {
-    model: "claude-sonnet-4-6",
+    model: ENV.anthropicModel,
     max_tokens: maxTokens ?? max_tokens ?? 8096,
     messages: anthropicMessages,
   };
@@ -224,7 +225,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     if (converted) requestParams.tool_choice = converted;
   }
 
-  const response = await client.messages.create(requestParams);
+  const response = await client.messages.create(requestParams, timeoutMs ? { timeout: timeoutMs } : undefined);
 
   const textContent = response.content
     .filter(b => b.type === "text")

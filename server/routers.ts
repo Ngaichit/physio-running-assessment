@@ -1,5 +1,5 @@
 import { COOKIE_NAME } from "@shared/const";
-import { zReportData } from "@shared/reportSchema";
+import { zReportData, zReportLlmOutput } from "@shared/reportSchema";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
@@ -642,7 +642,9 @@ export const appRouter = router({
 
       const prompt = buildReportPrompt(patient, assessment, annotationsList, metricsRatings, asymmetryData, dynamoTestData);
 
+      const generateOnce = async (): Promise<any> => {
       const result = await invokeLLM({
+        timeoutMs: 120000,
         messages: [
           {
             role: "system",
@@ -690,73 +692,6 @@ IMPORTANT FORMATTING RULES:
           },
           { role: "user", content: prompt }
         ],
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "running_report",
-            strict: true,
-            schema: {
-              type: "object",
-              properties: {
-                background: { type: "string", description: "Runner background summary" },
-                impressionFromTesting: { type: "string", description: "Detailed impression from all testing including VO2, InBody, and gait analysis" },
-                problems: {
-                  type: "array",
-                  description: "MAX 3 key clinical findings — the 3 with the highest clinical impact. Synthesise across ALL data sources (gait metrics, VO2, InBody, VALD strength, subjective history). Draw cross-source connections, not just metric lists.",
-                  items: {
-                    type: "object",
-                    properties: {
-                      title: { type: "string", description: "Short title, 3-5 words (e.g. 'Reduced Shock Absorption', 'Cardiorespiratory-Gait Mismatch')" },
-                      description: { type: "string", description: "ONE short clinical sentence — max 20 words. No paragraphs, no multi-sentence prose." },
-                      findings: { type: "array", description: "MAX 4 items. Each is a SINGLE LINE in chain-reasoning form: 'Observation N° -> Mechanism -> Tissue consequence'. Under 15 words per line. Use -> arrows and ↑/↓ for change." , items: { type: "string" } }
-                    },
-                    required: ["title", "description", "findings"],
-                    additionalProperties: false
-                  }
-                },
-                management: {
-                  type: "object",
-                  description: "Each section is a newline-separated list. MAX 3 items per section — highest-impact only, no padding.",
-                  properties: {
-                    gaitRelearning: { type: "string", description: "Running cues + gait re-education drills combined. MAX 3 items total, one per line. Format: 'Drill Xx reps — cue'." },
-                    mobilityExercises: { type: "string", description: "MAX 3 items, one per line. Format: 'Stretch/drill duration/reps — focus'." },
-                    strengthExercises: { type: "string", description: "MAX 3 items, one per line. Format: 'Exercise X sets x Y reps — focus'." },
-                    runningProgramming: { type: "string", description: "MAX 3 items, one per line. Format: 'Session type duration @ intensity — purpose'." }
-                  },
-                  required: ["gaitRelearning", "mobilityExercises", "strengthExercises", "runningProgramming"],
-                  additionalProperties: false
-                },
-                summary: { type: "string", description: "Brief overall summary" },
-                metricsAnalysis: {
-                  type: "string",
-                  description: "POINT FORM. 3-4 short bullet lines, one per line, separated by newlines. Each line ≤ 15 words. Comment on the 10-METRIC TABLE only. Example (3 lines):\nOverstride 15° + contralateral pelvic drop 8° dominant deviations\nCadence 162 spm below 170-180 target, ↑ ground contact time\nPush-off mechanics within range, not a priority\nDO NOT mention L vs R here. DO NOT write prose paragraphs. MUST differ from asymmetryAnalysis."
-                },
-                asymmetryAnalysis: {
-                  type: "string",
-                  description: "POINT FORM. 3-4 short bullet lines, one per line, separated by newlines. Each line ≤ 15 words. Comment on LEFT vs RIGHT only. Example (3 lines):\nPelvic drop R 8° vs L 3° → weak R hip ABD (corroborates VALD)\nKnee flexion at loading symmetric L/R\nStep width asymmetry within normal range\nDO NOT discuss overall pattern. DO NOT write prose. MUST differ from metricsAnalysis. If no data: write 'Bilateral comparison was not performed.'"
-                },
-                metricsRatings: {
-                  type: "array",
-                  description: "Rating for each measured metric based on 10-metric assessment standards",
-                  items: {
-                    type: "object",
-                    properties: {
-                      metricName: { type: "string" },
-                      measuredValue: { type: "number" },
-                      unit: { type: "string" },
-                      rating: { type: "string", description: "One of: Low, Optimal, High, Not Measured" },
-                      notes: { type: "string", description: "Brief clinical note including finding and load shift if applicable" }
-                    },
-                    required: ["metricName", "measuredValue", "unit", "rating", "notes"],
-                    additionalProperties: false
-                  }
-                }
-              },
-              required: ["background", "impressionFromTesting", "problems", "management", "summary", "metricsRatings", "metricsAnalysis", "asymmetryAnalysis"],
-              additionalProperties: false
-            }
-          }
-        }
       });
 
       const reportContent = result.choices[0]?.message?.content;
@@ -770,7 +705,7 @@ IMPORTANT FORMATTING RULES:
         const jsonMatch = reportText.match(/\{[\s\S]*\}/);
         if (jsonMatch) reportText = jsonMatch[0];
       }
-      const parsedReport = JSON.parse(reportText);
+      const parsed = JSON.parse(reportText); // may throw
 
       // Defensive: flatten any { title, content } objects to plain strings.
       // Claude sometimes returns text-section fields as objects despite the schema.
@@ -785,11 +720,34 @@ IMPORTANT FORMATTING RULES:
       };
       const stringFields = ["background", "impressionFromTesting", "summary", "metricsAnalysis", "asymmetryAnalysis"] as const;
       for (const f of stringFields) {
-        if (parsedReport[f] != null) parsedReport[f] = flattenToString(parsedReport[f]);
+        if (parsed[f] != null) parsed[f] = flattenToString(parsed[f]);
       }
-      if (parsedReport.management && typeof parsedReport.management === "object") {
-        for (const k of Object.keys(parsedReport.management)) {
-          parsedReport.management[k] = flattenToString(parsedReport.management[k]);
+      if (parsed.management && typeof parsed.management === "object") {
+        for (const k of Object.keys(parsed.management)) {
+          parsed.management[k] = flattenToString(parsed.management[k]);
+        }
+      }
+
+      // Validate raw LLM output against the shared schema (server provides metricsRatings, so it's not required here)
+      const validation = zReportLlmOutput.safeParse(parsed);
+      if (!validation.success) {
+        throw new Error("LLM output failed schema validation: " + validation.error.message.slice(0, 300));
+      }
+      return parsed;
+      };
+
+      // Generate + validate with one retry on any parse/validation failure.
+      let parsedReport: any;
+      try {
+        parsedReport = await generateOnce();
+      } catch (firstErr) {
+        try {
+          parsedReport = await generateOnce();
+        } catch (secondErr) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "The AI returned an invalid report after two attempts. Please try again.",
+          });
         }
       }
 
@@ -826,12 +784,15 @@ IMPORTANT FORMATTING RULES:
         parsedReport.dynamoTests = dynamoTestData;
       }
 
+      // Lenient final validation of the fully-merged object (preserves unknown keys).
+      const finalReport = zReportData.parse(parsedReport);
+
       await db.updateAssessment(input.assessmentId, ctx.user.id, {
-        aiGeneratedReport: JSON.stringify(parsedReport),
-        reportJson: parsedReport,
+        aiGeneratedReport: JSON.stringify(finalReport),
+        reportJson: finalReport,
       });
 
-      return { report: parsedReport };
+      return { report: finalReport };
     }),
   }),
 });
