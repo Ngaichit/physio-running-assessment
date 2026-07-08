@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { TRPCError } from "@trpc/server";
 import type { TrpcContext } from "./_core/context";
 
 // Mock the LLM so the report flow never touches the real Anthropic API,
@@ -135,6 +136,22 @@ describe("ai.generateReport — validation + retry", () => {
     expect((res.report.management as any).gaitRelearning).toBe("flattened cue");
     const [, , data] = vi.mocked(db.updateAssessment).mock.calls[0];
     expect((data as any).reportJson.background).toBe("flattened background");
+  });
+
+  it("missing assessment: throws a NOT_FOUND TRPCError", async () => {
+    vi.mocked(db.getAssessment).mockResolvedValue(undefined as any);
+
+    const caller = appRouter.createCaller(authCtx(1));
+    let caught: unknown;
+    try {
+      await caller.ai.generateReport({ assessmentId: 999 });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(TRPCError);
+    expect((caught as TRPCError).code).toBe("NOT_FOUND");
+    expect(invokeLLM).not.toHaveBeenCalled();
   });
 
   it("schema-invalid output on both attempts: rejects and does NOT store", async () => {

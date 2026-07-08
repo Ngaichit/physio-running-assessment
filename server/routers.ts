@@ -619,10 +619,10 @@ export const appRouter = router({
       assessmentId: z.number(),
     })).mutation(async ({ ctx, input }) => {
       const assessment = await db.getAssessment(input.assessmentId, ctx.user.id);
-      if (!assessment) throw new Error("Assessment not found");
+      if (!assessment) throw new TRPCError({ code: "NOT_FOUND", message: "Assessment not found" });
 
       const patient = await db.getPatient(assessment.patientId, ctx.user.id);
-      if (!patient) throw new Error("Patient not found");
+      if (!patient) throw new TRPCError({ code: "NOT_FOUND", message: "Patient not found" });
 
       const screenshotsList = await db.getScreenshots(input.assessmentId);
       const annotationsList: any[] = [];

@@ -1,4 +1,4 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users,
@@ -25,6 +25,12 @@ export async function getDb() {
     }
   }
   return _db;
+}
+
+export async function pingDatabase(): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  try { await db.execute(sql`SELECT 1`); return true; } catch { return false; }
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
