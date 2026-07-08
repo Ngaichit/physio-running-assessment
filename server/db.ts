@@ -30,7 +30,15 @@ export async function getDb() {
 export async function pingDatabase(): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
-  try { await db.execute(sql`SELECT 1`); return true; } catch { return false; }
+  try {
+    await Promise.race([
+      db.execute(sql`SELECT 1`),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("db ping timeout")), 4000)),
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
