@@ -94,10 +94,41 @@ export async function updatePatient(id: number, userId: number, data: Partial<In
   await db.update(patients).set(data).where(and(eq(patients.id, id), eq(patients.userId, userId)));
 }
 
+// The drizzle transaction handle, derived from the base db's transaction()
+// callback signature so no direct dependency on drizzle's internal tx type.
+type DbHandle = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+type DbTx = Parameters<Parameters<DbHandle["transaction"]>[0]>[0];
+
+// Delete an assessment's children (annotations via screenshots, then screenshots,
+// dynamoTests, videos) and finally the assessment row. Runs against the passed-in
+// handle (the surrounding transaction) so the whole tree is deleted atomically.
+// Caller verifies ownership.
+async function cascadeDeleteAssessment(tx: DbTx, assessmentId: number) {
+  const shots = await tx.select({ id: screenshots.id }).from(screenshots).where(eq(screenshots.assessmentId, assessmentId));
+  for (const s of shots) {
+    await tx.delete(annotations).where(eq(annotations.screenshotId, s.id));
+  }
+  await tx.delete(screenshots).where(eq(screenshots.assessmentId, assessmentId));
+  await tx.delete(dynamoTests).where(eq(dynamoTests.assessmentId, assessmentId));
+  await tx.delete(videos).where(eq(videos.assessmentId, assessmentId));
+  await tx.delete(assessments).where(eq(assessments.id, assessmentId));
+}
+
 export async function deletePatient(id: number, userId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.delete(patients).where(and(eq(patients.id, id), eq(patients.userId, userId)));
+  const owned = await db.select({ id: patients.id }).from(patients)
+    .where(and(eq(patients.id, id), eq(patients.userId, userId))).limit(1);
+  if (owned.length === 0) return;
+  // Cascade every owned assessment plus the patient row atomically.
+  await db.transaction(async (tx) => {
+    const rows = await tx.select({ id: assessments.id }).from(assessments)
+      .where(and(eq(assessments.patientId, id), eq(assessments.userId, userId)));
+    for (const a of rows) {
+      await cascadeDeleteAssessment(tx, a.id);
+    }
+    await tx.delete(patients).where(and(eq(patients.id, id), eq(patients.userId, userId)));
+  });
 }
 
 // ===== ASSESSMENTS =====
@@ -112,6 +143,52 @@ export async function getAssessment(id: number, userId: number) {
   if (!db) return undefined;
   const result = await db.select().from(assessments).where(and(eq(assessments.id, id), eq(assessments.userId, userId))).limit(1);
   return result[0];
+}
+
+// ===== OWNERSHIP CHECKS (multi-tenant guards) =====
+export async function userOwnsAssessment(assessmentId: number, userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: assessments.id }).from(assessments)
+    .where(and(eq(assessments.id, assessmentId), eq(assessments.userId, userId))).limit(1);
+  return rows.length > 0;
+}
+
+export async function userOwnsScreenshot(screenshotId: number, userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: screenshots.id }).from(screenshots)
+    .innerJoin(assessments, eq(screenshots.assessmentId, assessments.id))
+    .where(and(eq(screenshots.id, screenshotId), eq(assessments.userId, userId))).limit(1);
+  return rows.length > 0;
+}
+
+export async function userOwnsAnnotation(annotationId: number, userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: annotations.id }).from(annotations)
+    .innerJoin(screenshots, eq(annotations.screenshotId, screenshots.id))
+    .innerJoin(assessments, eq(screenshots.assessmentId, assessments.id))
+    .where(and(eq(annotations.id, annotationId), eq(assessments.userId, userId))).limit(1);
+  return rows.length > 0;
+}
+
+export async function userOwnsDynamoTest(dynamoTestId: number, userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: dynamoTests.id }).from(dynamoTests)
+    .innerJoin(assessments, eq(dynamoTests.assessmentId, assessments.id))
+    .where(and(eq(dynamoTests.id, dynamoTestId), eq(assessments.userId, userId))).limit(1);
+  return rows.length > 0;
+}
+
+export async function userOwnsVideo(videoId: number, userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: videos.id }).from(videos)
+    .innerJoin(assessments, eq(videos.assessmentId, assessments.id))
+    .where(and(eq(videos.id, videoId), eq(assessments.userId, userId))).limit(1);
+  return rows.length > 0;
 }
 
 export async function createAssessment(data: InsertAssessment) {
@@ -130,7 +207,11 @@ export async function updateAssessment(id: number, userId: number, data: Partial
 export async function deleteAssessment(id: number, userId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.delete(assessments).where(and(eq(assessments.id, id), eq(assessments.userId, userId)));
+  const owned = await db.select({ id: assessments.id }).from(assessments)
+    .where(and(eq(assessments.id, id), eq(assessments.userId, userId))).limit(1);
+  if (owned.length === 0) return;
+  // Cascade the whole child tree plus the assessment row atomically.
+  await db.transaction(async (tx) => { await cascadeDeleteAssessment(tx, id); });
 }
 
 // ===== SCREENSHOTS =====

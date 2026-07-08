@@ -1,6 +1,7 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import rateLimit from "express-rate-limit";
 import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { ENV } from "./env";
@@ -20,9 +21,37 @@ async function createSession(
   res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 }
 
+// Returns true iff `password` authenticates `user`.
+// - If the user has a bcrypt hash, compare against it.
+// - Otherwise (legacy/no-hash account) accept the ENV admin password ONLY for
+//   the configured admin email. Never for arbitrary password-less accounts.
+export async function passwordMatches(
+  user: { email?: string | null; passwordHash?: string | null },
+  password: string
+): Promise<boolean> {
+  if (user.passwordHash) {
+    return bcrypt.compare(password, user.passwordHash);
+  }
+  return (
+    !!ENV.adminPassword &&
+    user.email === ENV.adminEmail &&
+    password === ENV.adminPassword
+  );
+}
+
+// 10 attempts per 15 minutes per IP on auth endpoints.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { error: "Too many attempts. Please try again later." },
+});
+
 export function registerAuthRoutes(app: Express) {
   // ── Login ──────────────────────────────────────────────────────────────
-  app.post("/api/auth/login", async (req: Request, res: Response) => {
+  app.post("/api/auth/login", authLimiter, async (req: Request, res: Response) => {
     const { email, password } = req.body ?? {};
 
     if (!email || !password) {
@@ -50,16 +79,7 @@ export function registerAuthRoutes(app: Express) {
         return;
       }
 
-      // Check password: if user has a passwordHash, use bcrypt; otherwise check ENV.adminPassword
-      if (user.passwordHash) {
-        const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) {
-          res.status(401).json({ error: "Invalid email or password" });
-          return;
-        }
-      } else if (ENV.adminPassword && password === ENV.adminPassword) {
-        // Legacy admin login without passwordHash
-      } else {
+      if (!(await passwordMatches(user, password))) {
         res.status(401).json({ error: "Invalid email or password" });
         return;
       }
@@ -73,7 +93,7 @@ export function registerAuthRoutes(app: Express) {
   });
 
   // ── Register ───────────────────────────────────────────────────────────
-  app.post("/api/auth/register", async (req: Request, res: Response) => {
+  app.post("/api/auth/register", authLimiter, async (req: Request, res: Response) => {
     const { name, email, password, inviteCode } = req.body ?? {};
 
     if (!name || !email || !password) {

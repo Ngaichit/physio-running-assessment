@@ -2,16 +2,22 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
 import { storagePut } from "./storage";
 import { invokeLLM } from "./_core/llm";
 import { nanoid } from "nanoid";
+import { isPublicHttpUrl } from "./_core/ssrfGuard";
 
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query(({ ctx }) => {
+      if (!ctx.user) return null;
+      const { id, name, email, role } = ctx.user;
+      return { id, name, email, role };
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -102,7 +108,10 @@ export const appRouter = router({
   }),
 
   screenshot: router({
-    list: protectedProcedure.input(z.object({ assessmentId: z.number() })).query(({ input }) => db.getScreenshots(input.assessmentId)),
+    list: protectedProcedure.input(z.object({ assessmentId: z.number() })).query(async ({ ctx, input }) => {
+      if (!(await db.userOwnsAssessment(input.assessmentId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.getScreenshots(input.assessmentId);
+    }),
     create: protectedProcedure.input(z.object({
       assessmentId: z.number(),
       viewType: z.enum(["side_left", "side_right", "back"]),
@@ -113,22 +122,32 @@ export const appRouter = router({
       description: z.string().optional(),
       legSide: z.string().optional(),
       sortOrder: z.number().optional(),
-    })).mutation(({ input }) => db.createScreenshot(input)),
+    })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsAssessment(input.assessmentId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.createScreenshot(input);
+    }),
     update: protectedProcedure.input(z.object({
       id: z.number(),
       description: z.string().optional(),
       gaitPhase: z.enum(["foot_strike", "loading", "push_off", "swing", "other"]).optional(),
       legSide: z.string().optional().nullable(),
       sortOrder: z.number().optional(),
-    })).mutation(({ input }) => {
+    })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsScreenshot(input.id, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
       const { id, ...data } = input;
       return db.updateScreenshot(id, data);
     }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteScreenshot(input.id)),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsScreenshot(input.id, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.deleteScreenshot(input.id);
+    }),
   }),
 
   annotation: router({
-    list: protectedProcedure.input(z.object({ screenshotId: z.number() })).query(({ input }) => db.getAnnotations(input.screenshotId)),
+    list: protectedProcedure.input(z.object({ screenshotId: z.number() })).query(async ({ ctx, input }) => {
+      if (!(await db.userOwnsScreenshot(input.screenshotId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.getAnnotations(input.screenshotId);
+    }),
     create: protectedProcedure.input(z.object({
       screenshotId: z.number(),
       annotationType: z.enum(["line", "angle", "circle", "text"]),
@@ -138,7 +157,10 @@ export const appRouter = router({
       metricName: z.string().optional(),
       measuredValue: z.number().optional(),
       useOuterAngle: z.boolean().optional(),
-    })).mutation(({ input }) => db.createAnnotation(input)),
+    })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsScreenshot(input.screenshotId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.createAnnotation(input);
+    }),
     update: protectedProcedure.input(z.object({
       id: z.number(),
       data: z.any().optional(),
@@ -147,11 +169,15 @@ export const appRouter = router({
       metricName: z.string().optional(),
       measuredValue: z.number().optional(),
       useOuterAngle: z.boolean().optional(),
-    })).mutation(({ input }) => {
+    })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsAnnotation(input.id, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
       const { id, ...data } = input;
       return db.updateAnnotation(id, data);
     }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteAnnotation(input.id)),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsAnnotation(input.id, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.deleteAnnotation(input.id);
+    }),
   }),
 
   metrics: router({
@@ -238,7 +264,10 @@ export const appRouter = router({
   }),
 
   dynamo: router({
-    list: protectedProcedure.input(z.object({ assessmentId: z.number() })).query(({ input }) => db.getDynamoTests(input.assessmentId)),
+    list: protectedProcedure.input(z.object({ assessmentId: z.number() })).query(async ({ ctx, input }) => {
+      if (!(await db.userOwnsAssessment(input.assessmentId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.getDynamoTests(input.assessmentId);
+    }),
     create: protectedProcedure.input(z.object({
       assessmentId: z.number(),
       joint: z.string().min(1),
@@ -259,7 +288,10 @@ export const appRouter = router({
       rightReps: z.number().optional().nullable(),
       notes: z.string().optional(),
       sortOrder: z.number().optional(),
-    })).mutation(({ input }) => db.createDynamoTest(input)),
+    })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsAssessment(input.assessmentId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.createDynamoTest(input);
+    }),
     update: protectedProcedure.input(z.object({
       id: z.number(),
       joint: z.string().optional(),
@@ -280,16 +312,26 @@ export const appRouter = router({
       rightReps: z.number().optional().nullable(),
       notes: z.string().optional().nullable(),
       sortOrder: z.number().optional(),
-    })).mutation(({ input }) => {
+    })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsDynamoTest(input.id, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
       const { id, ...data } = input;
       return db.updateDynamoTest(id, data);
     }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteDynamoTest(input.id)),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsDynamoTest(input.id, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.deleteDynamoTest(input.id);
+    }),
   }),
 
   video: router({
-    list: protectedProcedure.input(z.object({ assessmentId: z.number() })).query(({ input }) => db.getVideos(input.assessmentId)),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteVideo(input.id)),
+    list: protectedProcedure.input(z.object({ assessmentId: z.number() })).query(async ({ ctx, input }) => {
+      if (!(await db.userOwnsAssessment(input.assessmentId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.getVideos(input.assessmentId);
+    }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsVideo(input.id, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.deleteVideo(input.id);
+    }),
   }),
 
   practitioner: router({
@@ -338,13 +380,23 @@ export const appRouter = router({
       return { key, uploadKey: key };
     }),
     uploadFile: protectedProcedure.input(z.object({
-      key: z.string(),
+      folder: z.enum(["screenshots", "inbody", "vo2", "videos", "uploads"]),
+      fileName: z.string().min(1),
       base64Data: z.string(),
       contentType: z.string(),
-    })).mutation(async ({ input }) => {
+    })).mutation(async ({ ctx, input }) => {
+      const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+      if (!ALLOWED.has(input.contentType)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Unsupported file type "${input.contentType}". Please upload a PDF or JPEG/PNG/WebP image.` });
+      }
       const buffer = Buffer.from(input.base64Data, "base64");
-      const result = await storagePut(input.key, buffer, input.contentType);
-      return result;
+      const MAX_BYTES = 15 * 1024 * 1024;
+      if (buffer.length > MAX_BYTES) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "File exceeds the 15 MB limit." });
+      }
+      const ext = (input.fileName.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const key = `${input.folder}/${ctx.user.id}/${nanoid()}.${ext}`;
+      return storagePut(key, buffer, input.contentType);
     }),
   }),
 
@@ -374,7 +426,9 @@ export const appRouter = router({
           if (commaIdx < 0) throw new Error("Malformed data URL");
           buffer = Buffer.from(input.url.slice(commaIdx + 1), "base64");
         } else {
-          const resp = await fetch(input.url);
+          if (!isPublicHttpUrl(input.url)) throw new Error("URL not allowed");
+          const resp = await fetch(input.url, { redirect: "manual" });
+          if (resp.status >= 300 && resp.status < 400) throw new Error("Redirects are not allowed");
           if (!resp.ok) throw new Error(`Failed to fetch PDF: ${resp.status}`);
           buffer = Buffer.from(await resp.arrayBuffer());
         }
@@ -424,6 +478,7 @@ export const appRouter = router({
       viewType: z.enum(["side_left", "side_right", "back"]),
       gaitPhase: z.enum(["foot_strike", "loading", "mid_stance", "push_off", "swing", "other"]),
     })).mutation(async ({ ctx, input }) => {
+      if (!(await db.userOwnsScreenshot(input.screenshotId, ctx.user.id))) throw new TRPCError({ code: "NOT_FOUND" });
       // Determine which metrics to detect based on view type and gait phase
       const allMetrics = getMetricsForView(input.viewType, input.gaitPhase);
       // Filter out category-based metrics (like M01 Overstride) — they use manual category picker, not AI angle detection

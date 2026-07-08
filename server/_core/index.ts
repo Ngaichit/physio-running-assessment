@@ -1,12 +1,16 @@
 import "dotenv/config";
 import express from "express";
+import helmet from "helmet";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
+import { assertRequiredEnv } from "./env";
 import { registerAuthRoutes } from "./auth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { isPublicHttpUrl } from "./ssrfGuard";
+import { sdk } from "./sdk";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -28,7 +32,32 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
+  assertRequiredEnv();
   const app = express();
+  app.set("trust proxy", 1); // Railway terminates TLS at a proxy; use X-Forwarded-For
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        // Vite serves inline styles; Google Fonts is used by the report.
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        // Screenshots/PDF pages render as data: URLs; blob: for canvas exports.
+        imgSrc: ["'self'", "data:", "blob:"],
+        // pdf.js worker + report print window need blob:; scripts are bundled.
+        scriptSrc: ["'self'", "'unsafe-inline'", "blob:"],
+        // fetch(data:) is used to re-encode inline screenshot images with annotations
+        connectSrc: ["'self'", "data:"],
+        workerSrc: ["'self'", "blob:"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'self'"],
+      },
+    },
+    // The report opens a new tab via window.open + document.write; COEP/CORP
+    // off avoids breaking that and the data: assets.
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: false,
+  }));
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
@@ -44,8 +73,22 @@ async function startServer() {
       res.status(400).json({ error: "Missing url parameter" });
       return;
     }
+    // Require a valid session — this endpoint fetches on the server's behalf.
+    const user = await sdk.authenticateRequest(req).catch(() => null);
+    if (!user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    if (!isPublicHttpUrl(url)) {
+      res.status(400).json({ error: "URL not allowed" });
+      return;
+    }
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, { redirect: "manual" });
+      if (response.status >= 300 && response.status < 400) {
+        res.status(400).json({ error: "Redirects are not allowed" });
+        return;
+      }
       if (!response.ok) {
         res.status(response.status).json({ error: `Failed to fetch PDF: ${response.statusText}` });
         return;
@@ -88,4 +131,7 @@ async function startServer() {
   });
 }
 
-startServer().catch(console.error);
+startServer().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

@@ -14,6 +14,7 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: any[] } {
     name: "Test Physio",
     loginMethod: "manus",
     role: "user",
+    passwordHash: "$2a$10$fakehashfakehashfakehashfake" as any,
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),
@@ -55,6 +56,14 @@ describe("auth.me", () => {
     expect(result).toBeDefined();
     expect(result?.name).toBe("Test Physio");
     expect(result?.email).toBe("physio@example.com");
+  });
+
+  it("never returns passwordHash", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.auth.me();
+    expect(result).not.toHaveProperty("passwordHash");
+    expect(result).toMatchObject({ id: 1, email: "physio@example.com", role: "user" });
   });
 });
 
