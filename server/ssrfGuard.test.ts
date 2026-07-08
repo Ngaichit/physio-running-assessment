@@ -30,4 +30,11 @@ describe("isPublicHttpUrl", () => {
     expect(isPublicHttpUrl("http://[fc00::1]/")).toBe(false);
     expect(isPublicHttpUrl("http://[fe80::1]/")).toBe(false);
   });
+  it("rejects internal hostnames and single-label hosts", () => {
+    expect(isPublicHttpUrl("http://metadata.google.internal/computeMetadata/v1/")).toBe(false);
+    expect(isPublicHttpUrl("http://redis/")).toBe(false);
+    expect(isPublicHttpUrl("http://db.internal/")).toBe(false);
+    expect(isPublicHttpUrl("http://printer.local/")).toBe(false);
+    expect(isPublicHttpUrl("http://localhost./")).toBe(false);
+  });
 });

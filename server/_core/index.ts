@@ -84,7 +84,11 @@ async function startServer() {
       return;
     }
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, { redirect: "manual" });
+      if (response.status >= 300 && response.status < 400) {
+        res.status(400).json({ error: "Redirects are not allowed" });
+        return;
+      }
       if (!response.ok) {
         res.status(response.status).json({ error: `Failed to fetch PDF: ${response.statusText}` });
         return;

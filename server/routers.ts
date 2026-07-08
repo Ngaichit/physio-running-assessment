@@ -427,7 +427,8 @@ export const appRouter = router({
           buffer = Buffer.from(input.url.slice(commaIdx + 1), "base64");
         } else {
           if (!isPublicHttpUrl(input.url)) throw new Error("URL not allowed");
-          const resp = await fetch(input.url);
+          const resp = await fetch(input.url, { redirect: "manual" });
+          if (resp.status >= 300 && resp.status < 400) throw new Error("Redirects are not allowed");
           if (!resp.ok) throw new Error(`Failed to fetch PDF: ${resp.status}`);
           buffer = Buffer.from(await resp.arrayBuffer());
         }
