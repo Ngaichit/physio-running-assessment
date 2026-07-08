@@ -9,6 +9,8 @@ import { registerAuthRoutes } from "./auth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { isPublicHttpUrl } from "./ssrfGuard";
+import { sdk } from "./sdk";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -69,6 +71,16 @@ async function startServer() {
     const url = req.query.url as string;
     if (!url) {
       res.status(400).json({ error: "Missing url parameter" });
+      return;
+    }
+    // Require a valid session — this endpoint fetches on the server's behalf.
+    const user = await sdk.authenticateRequest(req).catch(() => null);
+    if (!user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    if (!isPublicHttpUrl(url)) {
+      res.status(400).json({ error: "URL not allowed" });
       return;
     }
     try {

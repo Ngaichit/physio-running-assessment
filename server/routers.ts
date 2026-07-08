@@ -8,6 +8,7 @@ import * as db from "./db";
 import { storagePut } from "./storage";
 import { invokeLLM } from "./_core/llm";
 import { nanoid } from "nanoid";
+import { isPublicHttpUrl } from "./_core/ssrfGuard";
 
 export const appRouter = router({
   system: systemRouter,
@@ -425,6 +426,7 @@ export const appRouter = router({
           if (commaIdx < 0) throw new Error("Malformed data URL");
           buffer = Buffer.from(input.url.slice(commaIdx + 1), "base64");
         } else {
+          if (!isPublicHttpUrl(input.url)) throw new Error("URL not allowed");
           const resp = await fetch(input.url);
           if (!resp.ok) throw new Error(`Failed to fetch PDF: ${resp.status}`);
           buffer = Buffer.from(await resp.arrayBuffer());
