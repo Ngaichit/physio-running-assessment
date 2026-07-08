@@ -99,11 +99,12 @@ export const appRouter = router({
       assessmentRecording: z.string().optional().nullable(),
       followUpMonths: z.number().optional().nullable(),
       aiGeneratedReport: z.string().optional().nullable(),
-      // Validate stored report against the canonical (lenient) schema. Wrapped in
-      // z.unknown().pipe(...) so the client-facing input type stays permissive
-      // (it was z.any() before) while the server still validates + passes through
-      // unknown keys (forward-compat, no data loss on manual re-save).
-      reportJson: z.unknown().pipe(zReportData).nullable().optional(),
+      // reportJson round-trips as a JSON STRING (mysql2 returns json columns as
+      // strings, and the client sends back what it read) OR as an object (fresh
+      // edits). Accept a string as-is; validate objects against the canonical
+      // (lenient) schema. Was z.any() before; must not reject the string form or
+      // saving any assessment that already has a report breaks.
+      reportJson: z.union([z.string(), z.unknown().pipe(zReportData)]).nullable().optional(),
       practitionerId: z.number().optional().nullable(),
     })).mutation(({ ctx, input }) => {
       const { id, ...data } = input;
