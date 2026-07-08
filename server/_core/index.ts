@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import helmet from "helmet";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -32,6 +33,28 @@ async function startServer() {
   assertRequiredEnv();
   const app = express();
   app.set("trust proxy", 1); // Railway terminates TLS at a proxy; use X-Forwarded-For
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        // Vite serves inline styles; Google Fonts is used by the report.
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        // Screenshots/PDF pages render as data: URLs; blob: for canvas exports.
+        imgSrc: ["'self'", "data:", "blob:"],
+        // pdf.js worker + report print window need blob:; scripts are bundled.
+        scriptSrc: ["'self'", "'unsafe-inline'", "blob:"],
+        connectSrc: ["'self'"],
+        workerSrc: ["'self'", "blob:"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'self'"],
+      },
+    },
+    // The report opens a new tab via window.open + document.write; COEP/CORP
+    // off avoids breaking that and the data: assets.
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: false,
+  }));
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
