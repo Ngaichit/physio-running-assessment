@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users,
@@ -277,6 +277,12 @@ export async function getAnnotations(screenshotId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(annotations).where(eq(annotations.screenshotId, screenshotId));
+}
+
+export async function getAnnotationsForScreenshots(screenshotIds: number[]) {
+  const db = await getDb();
+  if (!db || screenshotIds.length === 0) return [];
+  return db.select().from(annotations).where(inArray(annotations.screenshotId, screenshotIds));
 }
 
 export async function createAnnotation(data: InsertAnnotation) {

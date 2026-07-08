@@ -739,19 +739,21 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
       // Fetch annotations for all screenshots and render image + annotations
       // onto a single canvas — matches the on-screen preview style exactly
       // (same drawAnnotationsOnCanvas function used by AnnotatedScreenshot).
-      const screenshotAnnotations: { screenshot: any; annotations: any[]; base64: string }[] = [];
-      if (screenshotsList && screenshotsList.length > 0) {
-        for (const ss of screenshotsList) {
-          try {
-            const anns = (await utils.annotation.list.fetch({ screenshotId: ss.id })) || [];
-            const base64 = await renderAnnotatedScreenshotBase64(ss, anns);
-            screenshotAnnotations.push({ screenshot: ss, annotations: anns, base64 });
-          } catch {
-            const base64 = await renderAnnotatedScreenshotBase64(ss, []);
-            screenshotAnnotations.push({ screenshot: ss, annotations: [], base64 });
-          }
-        }
-      }
+      const screenshotAnnotations: { screenshot: any; annotations: any[]; base64: string }[] =
+        screenshotsList && screenshotsList.length > 0
+          ? await Promise.all(
+              screenshotsList.map(async (ss: any) => {
+                let anns: any[] = [];
+                try {
+                  anns = (await utils.annotation.list.fetch({ screenshotId: ss.id })) || [];
+                } catch {
+                  anns = [];
+                }
+                const base64 = await renderAnnotatedScreenshotBase64(ss, anns);
+                return { screenshot: ss, annotations: anns, base64 };
+              })
+            )
+          : [];
 
       // Convert logo to base64
       const logoBase64 = await imageToBase64(LOGO_HORIZONTAL);
