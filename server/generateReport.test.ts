@@ -72,6 +72,7 @@ function primeDbForReportFlow() {
   } as any);
   vi.mocked(db.getScreenshots).mockResolvedValue([] as any);
   vi.mocked(db.getAnnotations).mockResolvedValue([] as any);
+  vi.mocked(db.getAnnotationsForScreenshots).mockResolvedValue([] as any);
   vi.mocked(db.getDynamoTests).mockResolvedValue([] as any);
   vi.mocked(db.getMetricsStandards).mockResolvedValue([] as any);
   vi.mocked(db.updateAssessment).mockResolvedValue(undefined as any);

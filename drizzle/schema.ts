@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, mediumtext, timestamp, varchar, json, float, boolean } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, mediumtext, timestamp, varchar, json, float, boolean, index } from "drizzle-orm/mysql-core";
 
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -30,7 +30,9 @@ export const patients = mysqlTable("patients", {
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => ({
+  userIdx: index("patients_userId_idx").on(t.userId),
+}));
 
 export type Patient = typeof patients.$inferSelect;
 export type InsertPatient = typeof patients.$inferInsert;
@@ -97,7 +99,10 @@ export const assessments = mysqlTable("assessments", {
 
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => ({
+  userPatientIdx: index("assessments_userId_patientId_idx").on(t.userId, t.patientId),
+  patientIdx: index("assessments_patientId_idx").on(t.patientId),
+}));
 
 export type Assessment = typeof assessments.$inferSelect;
 export type InsertAssessment = typeof assessments.$inferInsert;
@@ -115,7 +120,9 @@ export const screenshots = mysqlTable("screenshots", {
   legSide: varchar("legSide", { length: 10 }), // 'left' or 'right' — which leg is being analyzed (for back view)
   sortOrder: int("sortOrder").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (t) => ({
+  assessmentIdx: index("screenshots_assessmentId_idx").on(t.assessmentId),
+}));
 
 export type Screenshot = typeof screenshots.$inferSelect;
 export type InsertScreenshot = typeof screenshots.$inferInsert;
@@ -132,7 +139,9 @@ export const annotations = mysqlTable("annotations", {
   measuredValue: float("measuredValue"), // e.g. angle in degrees
   useOuterAngle: boolean("useOuterAngle").default(false), // whether to use outer (360-inner) angle
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (t) => ({
+  screenshotIdx: index("annotations_screenshotId_idx").on(t.screenshotId),
+}));
 
 export type Annotation = typeof annotations.$inferSelect;
 export type InsertAnnotation = typeof annotations.$inferInsert;
@@ -174,7 +183,9 @@ export const metricsStandards = mysqlTable("metricsStandards", {
   sortOrder: int("sortOrder").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => ({
+  userIdx: index("metricsStandards_userId_idx").on(t.userId),
+}));
 
 export type MetricsStandard = typeof metricsStandards.$inferSelect;
 export type InsertMetricsStandard = typeof metricsStandards.$inferInsert;
@@ -206,7 +217,9 @@ export const dynamoTests = mysqlTable("dynamoTests", {
   notes: text("notes"),
   sortOrder: int("sortOrder").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (t) => ({
+  assessmentIdx: index("dynamoTests_assessmentId_idx").on(t.assessmentId),
+}));
 
 export type DynamoTest = typeof dynamoTests.$inferSelect;
 export type InsertDynamoTest = typeof dynamoTests.$inferInsert;
@@ -226,7 +239,9 @@ export const practitioners = mysqlTable("practitioners", {
   isDefault: boolean("isDefault").default(false), // default practitioner for this user
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => ({
+  userIdx: index("practitioners_userId_idx").on(t.userId),
+}));
 
 export type Practitioner = typeof practitioners.$inferSelect;
 export type InsertPractitioner = typeof practitioners.$inferInsert;
@@ -244,7 +259,9 @@ export const abilityGroups = mysqlTable("abilityGroups", {
   isActive: boolean("isActive").default(true),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => ({
+  userIdx: index("abilityGroups_userId_idx").on(t.userId),
+}));
 
 export type AbilityGroup = typeof abilityGroups.$inferSelect;
 export type InsertAbilityGroup = typeof abilityGroups.$inferInsert;
@@ -258,7 +275,9 @@ export const videos = mysqlTable("videos", {
   fileName: varchar("fileName", { length: 500 }),
   durationSeconds: float("durationSeconds"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (t) => ({
+  assessmentIdx: index("videos_assessmentId_idx").on(t.assessmentId),
+}));
 
 export type Video = typeof videos.$inferSelect;
 export type InsertVideo = typeof videos.$inferInsert;

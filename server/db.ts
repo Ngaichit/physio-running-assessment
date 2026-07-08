@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users,
@@ -149,7 +149,20 @@ export async function deletePatient(id: number, userId: number) {
 export async function getAssessments(patientId: number, userId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(assessments).where(and(eq(assessments.patientId, patientId), eq(assessments.userId, userId))).orderBy(desc(assessments.updatedAt));
+  // List view only needs identity/status/date — omit the multi-MB base64 blob
+  // columns (InBody/VO2 PDFs, reportJson) and long text notes to keep the list
+  // query small. Use assessment.get for the full row.
+  return db.select({
+    id: assessments.id,
+    userId: assessments.userId,
+    patientId: assessments.patientId,
+    assessmentDate: assessments.assessmentDate,
+    status: assessments.status,
+    practitionerId: assessments.practitionerId,
+    followUpMonths: assessments.followUpMonths,
+    createdAt: assessments.createdAt,
+    updatedAt: assessments.updatedAt,
+  }).from(assessments).where(and(eq(assessments.patientId, patientId), eq(assessments.userId, userId))).orderBy(desc(assessments.updatedAt));
 }
 
 export async function getAssessment(id: number, userId: number) {
@@ -264,6 +277,12 @@ export async function getAnnotations(screenshotId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(annotations).where(eq(annotations.screenshotId, screenshotId));
+}
+
+export async function getAnnotationsForScreenshots(screenshotIds: number[]) {
+  const db = await getDb();
+  if (!db || screenshotIds.length === 0) return [];
+  return db.select().from(annotations).where(inArray(annotations.screenshotId, screenshotIds));
 }
 
 export async function createAnnotation(data: InsertAnnotation) {

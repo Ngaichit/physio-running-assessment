@@ -625,11 +625,14 @@ export const appRouter = router({
       if (!patient) throw new TRPCError({ code: "NOT_FOUND", message: "Patient not found" });
 
       const screenshotsList = await db.getScreenshots(input.assessmentId);
-      const annotationsList: any[] = [];
-      for (const ss of screenshotsList) {
-        const anns = await db.getAnnotations(ss.id);
-        annotationsList.push({ screenshot: ss, annotations: anns });
+      const allAnnotations = await db.getAnnotationsForScreenshots(screenshotsList.map((s: any) => s.id));
+      const annsByScreenshot = new Map<number, any[]>();
+      for (const a of allAnnotations) {
+        const arr = annsByScreenshot.get(a.screenshotId) ?? [];
+        arr.push(a);
+        annsByScreenshot.set(a.screenshotId, arr);
       }
+      const annotationsList = screenshotsList.map((ss: any) => ({ screenshot: ss, annotations: annsByScreenshot.get(ss.id) ?? [] }));
 
       // Fetch dynamo test data
       const dynamoTestData = await db.getDynamoTests(input.assessmentId);
