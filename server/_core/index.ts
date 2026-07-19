@@ -11,6 +11,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { isPublicHttpUrl } from "./ssrfGuard";
+import { cspDirectives } from "./csp";
 import { sdk } from "./sdk";
 import { pingDatabase } from "../db";
 
@@ -39,21 +40,7 @@ async function startServer() {
   app.set("trust proxy", 1); // Railway terminates TLS at a proxy; use X-Forwarded-For
   app.use(helmet({
     contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        // Vite serves inline styles; Google Fonts is used by the report.
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-        // Screenshots/PDF pages render as data: URLs; blob: for canvas exports.
-        imgSrc: ["'self'", "data:", "blob:"],
-        // pdf.js worker + report print window need blob:; scripts are bundled.
-        scriptSrc: ["'self'", "'unsafe-inline'", "blob:"],
-        // fetch(data:) is used to re-encode inline screenshot images with annotations
-        connectSrc: ["'self'", "data:"],
-        workerSrc: ["'self'", "blob:"],
-        objectSrc: ["'none'"],
-        frameAncestors: ["'self'"],
-      },
+      directives: cspDirectives,
     },
     // The report opens a new tab via window.open + document.write; COEP/CORP
     // off avoids breaking that and the data: assets.
