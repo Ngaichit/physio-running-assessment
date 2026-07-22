@@ -11,11 +11,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   Upload, Camera, ChevronLeft, ChevronRight, Play, Pause, Trash2,
   Loader2, Pencil, SkipBack, SkipForward, RotateCcw, Move,
-  AlignHorizontalDistributeCenter, Maximize2, Minimize2
+  AlignHorizontalDistributeCenter, Maximize2, Minimize2, Presentation
 } from "lucide-react";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import AnnotationCanvas from "./AnnotationCanvas";
+import VideoPresentMode from "./VideoPresentMode";
 
 interface Props {
   assessmentId: number;
@@ -63,6 +64,7 @@ export default function VideoAnalysis({ assessmentId }: Props) {
     back: { ...DEFAULT_ALIGNMENT },
   });
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [presenting, setPresenting] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -452,6 +454,16 @@ export default function VideoAnalysis({ assessmentId }: Props) {
                   <AlignHorizontalDistributeCenter className="h-3 w-3 mr-1" />Align
                 </Button>
               )}
+              {currentVideoSrc && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setPresenting(true)}
+                >
+                  <Presentation className="h-3 w-3 mr-1" />Present
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -810,6 +822,14 @@ export default function VideoAnalysis({ assessmentId }: Props) {
             />
           </DialogContent>
         </Dialog>
+      )}
+
+      {presenting && currentVideoSrc && (
+        <VideoPresentMode
+          videoSrc={currentVideoSrc}
+          startTime={currentTime}
+          onClose={() => setPresenting(false)}
+        />
       )}
     </div>
   );
