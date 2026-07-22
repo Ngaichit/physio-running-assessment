@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Minus, CornerDownRight, Circle, Type, Trash2, Loader2, Save, Undo2, Grid3X3, MoveHorizontal, MoveVertical, Info, Target } from "lucide-react";
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
+import { calculateInnerAngle as calcInnerAngle, getEffectiveAngle as getEffAngle } from "@/lib/annotationGeometry";
 
 type AnnotationType = "line" | "angle" | "circle" | "text" | "horizontal" | "vertical";
 type Point = { x: number; y: number };
@@ -201,27 +202,14 @@ export default function AnnotationCanvas({ screenshot, assessmentId, onClose, on
     return () => observer.disconnect();
   }, [imageLoaded, imageNaturalSize]);
 
-  // Calculate inner angle between 3 points (always returns the smaller angle 0-180)
-  const calculateInnerAngle = useCallback((points: Point[]): number => {
-    if (points.length < 3) return 0;
-    const [p1, vertex, p2] = points;
-    const v1 = { x: p1.x - vertex.x, y: p1.y - vertex.y };
-    const v2 = { x: p2.x - vertex.x, y: p2.y - vertex.y };
-    const dot = v1.x * v2.x + v1.y * v2.y;
-    const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
-    const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
-    if (mag1 === 0 || mag2 === 0) return 0;
-    return (Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * 180) / Math.PI;
-  }, []);
+  // Calculate inner angle between 3 points (delegates to shared geometry).
+  const calculateInnerAngle = useCallback((points: Point[]): number => calcInnerAngle(points), []);
 
-  // Get effective angle for an annotation based on angleMode
+  // Get effective angle for an annotation based on angleMode.
   const getEffectiveAngle = useCallback((ann: DrawingAnnotation): number => {
-    const inner = calculateInnerAngle(ann.points);
     const mode = ann.angleMode || (ann.useOuterAngle ? "outer" : "inner");
-    if (mode === "outer") return 360 - inner;
-    if (mode === "supplement") return Math.abs(180 - inner);
-    return inner;
-  }, [calculateInnerAngle]);
+    return getEffAngle(ann.points, mode);
+  }, []);
 
   // Legacy alias for compatibility
   const calculateAngle = calculateInnerAngle;
