@@ -8,6 +8,9 @@ import {
 } from "lucide-react";
 import { calculateInnerAngle, type Point, type AnnotationType } from "@/lib/annotationGeometry";
 import { containVideoRect, type Rect } from "@/lib/videoFrameRect";
+import {
+  PLAYBACK_RATES, DEFAULT_PLAYBACK_RATE, clampPlaybackRate, formatPlaybackRate,
+} from "@/lib/playbackRate";
 
 const COLORS = ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#ffffff"];
 
@@ -49,6 +52,9 @@ export default function VideoPresentMode({ videoSrc, startTime, onClose }: Props
   const [currentTime, setCurrentTime] = useState(startTime);
   const [duration, setDuration] = useState(0);
   const [frameStepIndex, setFrameStepIndex] = useState(2);
+  const [playbackRate, setPlaybackRate] = useState<number>(DEFAULT_PLAYBACK_RATE);
+  // Dropdowns must portal into the fullscreen element; document.body renders behind it.
+  const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
   const [rect, setRect] = useState<Rect>({ left: 0, top: 0, width: 0, height: 0 });
   const [dragging, setDragging] = useState<{ annIndex: number; pointIndex: number } | null>(null);
   const [textDraft, setTextDraft] = useState<{ x: number; y: number; value: string } | null>(null);
@@ -57,6 +63,8 @@ export default function VideoPresentMode({ videoSrc, startTime, onClose }: Props
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timeThrottle = useRef(0);
+  // Mirrors playbackRate so the loadedmetadata handler can reapply it without re-subscribing.
+  const rateRef = useRef(DEFAULT_PLAYBACK_RATE);
 
   // Drawing requires a frozen frame — clear the overlay whenever the frame changes.
   const clearAnnotations = useCallback(() => {
@@ -73,9 +81,18 @@ export default function VideoPresentMode({ videoSrc, startTime, onClose }: Props
     setRect(containVideoRect(container.clientWidth, container.clientHeight, video.videoWidth, video.videoHeight));
   }, []);
 
+  // Apply playback speed to the element; browsers keep it across play/pause.
+  useEffect(() => {
+    const rate = clampPlaybackRate(playbackRate);
+    rateRef.current = rate;
+    const video = videoRef.current;
+    if (video) video.playbackRate = rate;
+  }, [playbackRate]);
+
   // Enter fullscreen on mount; close when the user leaves fullscreen.
   useEffect(() => {
     const el = containerRef.current;
+    setPortalHost(el);
     if (el && !document.fullscreenElement) el.requestFullscreen?.().catch(() => {});
     const onFsChange = () => {
       recomputeRect();
@@ -103,6 +120,8 @@ export default function VideoPresentMode({ videoSrc, startTime, onClose }: Props
     const onLoaded = () => {
       video.currentTime = startTime;
       setDuration(video.duration);
+      // Loading a source resets playbackRate to 1 — restore the user's choice.
+      video.playbackRate = rateRef.current;
       recomputeRect();
     };
     const onTimeUpdate = () => {
@@ -165,6 +184,8 @@ export default function VideoPresentMode({ videoSrc, startTime, onClose }: Props
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
+      // Let the dropdowns own space/arrows while they have focus.
+      if (e.target instanceof HTMLElement && e.target.closest('[role="combobox"],[role="listbox"]')) return;
       if (e.key === " ") { e.preventDefault(); togglePlay(); }
       else if (e.key === "ArrowLeft") { e.preventDefault(); stepFrame(-1); }
       else if (e.key === "ArrowRight") { e.preventDefault(); stepFrame(1); }
@@ -403,7 +424,7 @@ export default function VideoPresentMode({ videoSrc, startTime, onClose }: Props
       </div>
 
       {/* Bottom playback bar */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(720px,90vw)] flex items-center gap-3 bg-black/70 rounded-lg px-4 py-2 text-white">
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(860px,94vw)] flex items-center gap-3 bg-black/70 rounded-lg px-4 py-2 text-white">
         <Button size="icon" variant="ghost" className="h-8 w-8 text-white" onClick={togglePlay}>
           {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
         </Button>
@@ -416,9 +437,21 @@ export default function VideoPresentMode({ videoSrc, startTime, onClose }: Props
         <Slider className="flex-1" value={[currentTime]} min={0} max={duration || 1} step={0.001}
           onValueChange={([v]) => seekTo(v)} />
         <span className="text-xs font-mono w-28 text-right">{fmt(currentTime)} / {fmt(duration)}</span>
+        <Select value={String(playbackRate)} onValueChange={(v) => setPlaybackRate(Number(v))}>
+          <SelectTrigger className="w-[84px] h-8 text-xs text-white border-white/30" title="Playback speed">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent container={portalHost}>
+            {PLAYBACK_RATES.map(r => (
+              <SelectItem key={r} value={String(r)}>{formatPlaybackRate(r)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={String(frameStepIndex)} onValueChange={(v) => setFrameStepIndex(Number(v))}>
-          <SelectTrigger className="w-[92px] h-8 text-xs text-white border-white/30"><SelectValue /></SelectTrigger>
-          <SelectContent>
+          <SelectTrigger className="w-[92px] h-8 text-xs text-white border-white/30" title="Frame step size">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent container={portalHost}>
             {FRAME_STEPS.map((s, i) => (<SelectItem key={i} value={String(i)}>{s.label}</SelectItem>))}
           </SelectContent>
         </Select>

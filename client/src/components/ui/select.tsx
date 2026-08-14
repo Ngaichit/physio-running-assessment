@@ -53,10 +53,15 @@ function SelectContent({
   children,
   position = "popper",
   align = "center",
+  container,
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Content>) {
+}: React.ComponentProps<typeof SelectPrimitive.Content> & {
+  // Portal host. Defaults to document.body, which is invisible while some other
+  // element is fullscreen — pass the fullscreen element itself in that case.
+  container?: HTMLElement | null;
+}) {
   return (
-    <SelectPrimitive.Portal>
+    <SelectPrimitive.Portal container={container ?? undefined}>
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
