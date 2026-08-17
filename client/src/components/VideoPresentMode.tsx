@@ -11,6 +11,7 @@ import { containVideoRect, type Rect } from "@/lib/videoFrameRect";
 import {
   PLAYBACK_RATES, DEFAULT_PLAYBACK_RATE, clampPlaybackRate, formatPlaybackRate,
 } from "@/lib/playbackRate";
+import { videoKeyAction, isTextEntryTarget } from "@/lib/videoKeys";
 
 const COLORS = ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#ffffff"];
 
@@ -66,7 +67,8 @@ export default function VideoPresentMode({ videoSrc, startTime, onClose }: Props
   // Mirrors playbackRate so the loadedmetadata handler can reapply it without re-subscribing.
   const rateRef = useRef(DEFAULT_PLAYBACK_RATE);
 
-  // Drawing requires a frozen frame — clear the overlay whenever the frame changes.
+  // Annotations persist across play and seek — they are normalized to the video
+  // rect, so they stay put on any frame. Undo and Clear all are the only ways out.
   const clearAnnotations = useCallback(() => {
     setAnnotations([]);
     setCurrentPoints([]);
@@ -146,24 +148,22 @@ export default function VideoPresentMode({ videoSrc, startTime, onClose }: Props
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) {
-      clearAnnotations(); // playing invalidates the frozen-frame drawings
       video.play();
       setIsPlaying(true);
     } else {
       video.pause();
       setIsPlaying(false);
     }
-  }, [clearAnnotations]);
+  }, []);
 
   const seekTo = useCallback((t: number) => {
     const video = videoRef.current;
     if (!video) return;
     video.pause();
     setIsPlaying(false);
-    clearAnnotations();
     video.currentTime = Math.max(0, Math.min(video.duration || t, t));
     setCurrentTime(video.currentTime);
-  }, [clearAnnotations]);
+  }, []);
 
   const stepFrame = useCallback((direction: number) => {
     const video = videoRef.current;
@@ -171,27 +171,36 @@ export default function VideoPresentMode({ videoSrc, startTime, onClose }: Props
     seekTo(video.currentTime + direction * FRAME_STEPS[frameStepIndex].value);
   }, [frameStepIndex, seekTo]);
 
-  // Picking a tool while playing pauses so drawing lands on a frozen frame.
+  // Picking a tool no longer interrupts playback — drawings survive it.
   const selectTool = useCallback((t: AnnotationType) => {
-    const video = videoRef.current;
-    if (video && !video.paused) { video.pause(); setIsPlaying(false); }
     setTool(t);
     setCurrentPoints([]);
     setTextDraft(null);
   }, []);
 
-  // Keyboard: space play/pause, arrows step. (Esc exits fullscreen → onClose.)
+  // Keyboard: space play/pause, arrows step — always, whatever is focused and
+  // whichever drawing tool is active. (Esc exits fullscreen → onClose.)
+  //
+  // Capture phase + stopPropagation, because a focused scrubber or toolbar button
+  // would otherwise consume the key first and seek or re-fire itself. The cost is
+  // that Space no longer opens a focused dropdown; click it or use Enter instead.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return;
-      // Let the dropdowns own space/arrows while they have focus.
-      if (e.target instanceof HTMLElement && e.target.closest('[role="combobox"],[role="listbox"]')) return;
-      if (e.key === " ") { e.preventDefault(); togglePlay(); }
-      else if (e.key === "ArrowLeft") { e.preventDefault(); stepFrame(-1); }
-      else if (e.key === "ArrowRight") { e.preventDefault(); stepFrame(1); }
+      const action = videoKeyAction(e.key);
+      if (!action) return;
+
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      // Typing a label needs its own keys, and an open dropdown needs arrows.
+      if (isTextEntryTarget(target)) return;
+      if (target?.closest('[role="listbox"]')) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      if (action === "toggle-play") togglePlay();
+      else stepFrame(action === "step-back" ? -1 : 1);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [togglePlay, stepFrame]);
 
   const pointerToNormalized = (e: React.PointerEvent<HTMLCanvasElement>): Point => {
