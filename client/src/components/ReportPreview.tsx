@@ -1250,7 +1250,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
 
 </style>
 </head><body>
-<button class="print-btn no-print" onclick="window.print()">\uD83D\uDDA8 Print / Save as PDF</button>
+<button type="button" id="print-btn" class="print-btn no-print">\uD83D\uDDA8 Print / Save as PDF</button>
 
 <!-- Cover Page -->
 <div class="cover">
@@ -1393,6 +1393,13 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
   <span>Confidential</span>
 </div>
 
+<!-- Inline <script>, not an onclick attribute: this tab inherits the app's CSP,
+     which sets script-src-attr 'none' and would silently ignore the handler. -->
+<script>
+  document.getElementById('print-btn').addEventListener('click', function () {
+    window.print();
+  });
+</script>
 </body></html>`;
 
       toast.dismiss("pdf-prep");
