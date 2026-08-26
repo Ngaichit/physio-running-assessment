@@ -29,4 +29,12 @@ describe("exported report print button", () => {
     expect(source).toMatch(/addEventListener\(\s*["']click["']/);
     expect(source).toMatch(/window\.print\(\)/);
   });
+
+  // Safari prints a script-generated about:blank document as a blank page, so
+  // the finished report must arrive as a real document (blob: URL) rather than
+  // being written into the placeholder tab.
+  it("hands the finished report over with deliverReport, not document.write", () => {
+    expect(source).toMatch(/deliverReport\(\s*printWindow/);
+    expect(source).not.toMatch(/printWindow\.document\.write\(\s*html\s*\)/);
+  });
 });

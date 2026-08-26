@@ -12,6 +12,7 @@ import { toast } from "sonner";
 // exported, so it lands in its own chunk instead of the main bundle.
 const PdfPageRenderer = lazy(() => import("@/components/PdfPageRenderer"));
 import { escapeHtml } from "@/report/escape";
+import { browserBlobUrls, deliverReport } from "@/report/deliverReport";
 // Plain text renderer - replaces Streamdown to prevent markdown/code rendering
 // Flatten any value to a plain string. Handles cases where the AI returned
 // { title, content } or { text } objects instead of strings.
@@ -1404,10 +1405,10 @@ ${reportPractitioner ? `<div style="margin-top:48px;padding-top:28px;border-top:
 
       toast.dismiss("pdf-prep");
 
-      // Replace the placeholder with the finished report
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
+      // Replace the placeholder with the finished report. Navigating to a blob:
+      // URL rather than document.write()-ing into about:blank — Safari prints a
+      // script-generated about:blank document as a blank page.
+      deliverReport(printWindow, html, browserBlobUrls);
 
       toast.success("Report opened in new tab. In the print dialog, uncheck 'Headers and footers' for a clean PDF.", { duration: 8000 });
       setExporting(false);
