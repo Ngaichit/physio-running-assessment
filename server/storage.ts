@@ -1,6 +1,7 @@
 import { PutObjectCommand, S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ENV } from "./_core/env";
+import { MAX_UPLOAD_BYTES, formatBytes } from "@shared/uploadLimits";
 
 function isS3Configured() {
   return !!(ENV.awsAccessKeyId && ENV.awsSecretAccessKey && ENV.awsBucket);
@@ -22,8 +23,9 @@ function normalizeKey(relKey: string): string {
 
 // MySQL MEDIUMTEXT cap is 16,777,215 bytes. The base64 form of the file is what we store,
 // so the raw file is capped at ~12 MB once you account for base64's 33% overhead and the
-// "data:<contentType>;base64," prefix.
-const INLINE_FILE_MAX_BYTES = 12 * 1024 * 1024;
+// "data:<contentType>;base64," prefix. That cap is the app-wide upload limit, shared with
+// the tRPC route and the browser so all three agree — see @shared/uploadLimits.
+const INLINE_FILE_MAX_BYTES = MAX_UPLOAD_BYTES;
 
 function toBase64DataUrl(data: Buffer | Uint8Array | string, contentType: string): string {
   const buf = typeof data === "string" ? Buffer.from(data) : Buffer.from(data);
@@ -43,7 +45,7 @@ export async function storagePut(
     const buf = typeof data === "string" ? Buffer.from(data) : Buffer.from(data);
     if (buf.length > INLINE_FILE_MAX_BYTES) {
       throw new Error(
-        `File is too large to store inline (${(buf.length / 1024 / 1024).toFixed(1)} MB; limit 12 MB). ` +
+        `File is too large to store inline (${formatBytes(buf.length)}; limit ${formatBytes(INLINE_FILE_MAX_BYTES)}). ` +
         `Configure S3 (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, AWS_BUCKET) for larger files.`
       );
     }
