@@ -739,11 +739,31 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
 
       // Fetch annotations for all screenshots and render image + annotations
       // onto a single canvas — matches the on-screen preview style exactly
+      // Pull the report's own data at export time instead of trusting whatever
+      // this component's queries happen to hold. An unresolved or failed query
+      // yields undefined silently, and the export then just omits the section —
+      // which is how a report went out titled "Unknown" with no screenshots and
+      // no strength tests, while the AI text named the patient correctly.
+      // .fetch() serves the cache when it's warm and throws when it isn't.
+      const [exportPatient, exportScreenshots, exportDynamo] = await Promise.all([
+        formData?.patientId
+          ? utils.patient.get.fetch({ id: formData.patientId })
+          : Promise.resolve(null),
+        utils.screenshot.list.fetch({ assessmentId }),
+        utils.dynamo.list.fetch({ assessmentId }),
+      ]);
+
+      // A clinical document carrying the wrong identity is worse than no
+      // document, so stop rather than print the "Unknown" placeholder.
+      if (formData?.patientId && !exportPatient) {
+        throw new Error("Could not load the patient record — report not exported. Please try again.");
+      }
+
       // (same drawAnnotationsOnCanvas function used by AnnotatedScreenshot).
       const screenshotAnnotations: { screenshot: any; annotations: any[]; base64: string }[] =
-        screenshotsList && screenshotsList.length > 0
+        exportScreenshots && exportScreenshots.length > 0
           ? await Promise.all(
-              screenshotsList.map(async (ss: any) => {
+              exportScreenshots.map(async (ss: any) => {
                 let anns: any[] = [];
                 try {
                   anns = (await utils.annotation.list.fetch({ screenshotId: ss.id })) || [];
@@ -791,7 +811,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
       const asymSvg = displayReport?.asymmetryData ? generateAsymmetryChartSVG(displayReport.asymmetryData) : '';
 
       // Build the full HTML report
-      const patientName = patient ? patient.name : 'Unknown';
+      const patientName = exportPatient ? exportPatient.name : 'Unknown';
       // String-path escaping: esc() for plain values, escText() for AI text
       // that first flows through asText(). Used ONLY in the document.write template.
       const esc = escapeHtml;
@@ -917,7 +937,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
         : '';
 
       // Dynamo strength table HTML
-      const dynamoData = displayReport?.dynamoTests || dynamoTestsList || [];
+      const dynamoData = displayReport?.dynamoTests || exportDynamo || [];
       const dynamoHtml = dynamoData.length > 0 ? (() => {
         const grouped: Record<string, typeof dynamoData> = {};
         for (const t of dynamoData) { if (!grouped[t.joint]) grouped[t.joint] = []; grouped[t.joint]!.push(t); }
@@ -1031,6 +1051,12 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   @media print {
     .no-print { display: none !important; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
+    /* vh resolves against the screen viewport in Safari's print rendering, not
+       the page box, so a 100vh cover is taller than the page: the top stretches
+       into a white gap and the bottom bar spills onto a second, blank page.
+       @page :first sets margin 0, so the first page box is a full A4 — 296mm
+       fills it with a hair of slack for rounding. */
+    .cover { height: 296mm; }
   }
 
   /* ===== TYPOGRAPHY ===== */
@@ -1263,7 +1289,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
     </div>
     <div class="cover-right">
       <div class="info-item"><div class="info-label">Patient</div><div class="info-value">${esc(patientName)}</div></div>
-      ${patient?.dateOfBirth ? `<div class="info-item"><div class="info-label">Date of Birth</div><div class="info-value">${new Date(patient.dateOfBirth).toLocaleDateString('en-AU')}</div></div>` : ''}
+      ${exportPatient?.dateOfBirth ? `<div class="info-item"><div class="info-label">Date of Birth</div><div class="info-value">${new Date(exportPatient.dateOfBirth).toLocaleDateString('en-AU')}</div></div>` : ''}
       <div class="info-item"><div class="info-label">Assessment Date</div><div class="info-value">${assessDate}</div></div>
       ${practitionerName ? `<div class="info-item"><div class="info-label">Practitioner</div><div class="info-value">${esc(practitionerName)}</div></div>` : ''}
       ${conditionsStr ? `<div class="info-item"><div class="info-label">Testing Conditions</div><div class="info-value" style="font-size:11px;font-weight:400;line-height:1.5">${esc(conditionsStr)}</div></div>` : ''}
