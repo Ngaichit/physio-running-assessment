@@ -1,5 +1,6 @@
 import { COOKIE_NAME } from "@shared/const";
 import { zReportData, zReportLlmOutput } from "@shared/reportSchema";
+import { uploadSizeError } from "@shared/uploadLimits";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
@@ -396,9 +397,10 @@ export const appRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: `Unsupported file type "${input.contentType}". Please upload a PDF or JPEG/PNG/WebP image.` });
       }
       const buffer = Buffer.from(input.base64Data, "base64");
-      const MAX_BYTES = 15 * 1024 * 1024;
-      if (buffer.length > MAX_BYTES) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "File exceeds the 15 MB limit." });
+      // Same limit the browser checked before sending — see @shared/uploadLimits.
+      const tooLarge = uploadSizeError(buffer.length);
+      if (tooLarge) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: tooLarge });
       }
       const ext = (input.fileName.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "");
       const key = `${input.folder}/${ctx.user.id}/${nanoid()}.${ext}`;

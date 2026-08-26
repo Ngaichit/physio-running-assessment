@@ -11,6 +11,9 @@ import { ArrowLeft, Save, Loader2, Plus, Trash2, Upload, Camera, Wand2, FileDown
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation, useParams } from "wouter";
 import { toast } from "sonner";
+import { MAX_UPLOAD_BYTES, formatBytes, uploadSizeError } from "@shared/uploadLimits";
+import { uploadErrorMessage } from "@/lib/uploadError";
+import { HEAVY_ASSESSMENT_FIELDS, omitUnchanged } from "@/lib/savePayload";
 import VideoAnalysis from "@/components/VideoAnalysis";
 import ReportPreview from "@/components/ReportPreview";
 import DynamoTests from "@/components/DynamoTests";
@@ -57,6 +60,11 @@ export default function AssessmentEditor() {
   const [injuries, setInjuries] = useState<Injury[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const dirtyTokenRef = useRef(0);
+  // What the server already holds for the multi-MB InBody/VO2 data: URLs. The
+  // 3s debounced autosave sends all of formData, so without this every
+  // keystroke re-uploaded the whole PDF — a request big enough to get dropped
+  // mid-flight, which is what "upload succeeded but nothing appeared" was.
+  const savedHeavyRef = useRef<Record<string, any> | null>(null);
 
   const { data: assessment, isLoading, isError, refetch } = trpc.assessment.get.useQuery({ id: assessmentId });
   const utils = trpc.useUtils();
@@ -67,6 +75,9 @@ export default function AssessmentEditor() {
   useEffect(() => {
     if (assessment && !formData) {
       setFormData({ ...assessment });
+      savedHeavyRef.current = Object.fromEntries(
+        HEAVY_ASSESSMENT_FIELDS.map(f => [f, (assessment as any)[f] ?? null]),
+      );
       const inj = assessment.injuries;
       if (inj) {
         const parsed = typeof inj === "string" ? JSON.parse(inj) : inj;
@@ -97,7 +108,18 @@ export default function AssessmentEditor() {
     try {
       const { id: _id, userId: _u, patientId: _p, createdAt: _c, updatedAt: _up, ...data } = formData;
       const nextStatus = formData.status === "draft" ? "in_progress" : formData.status;
-      await updateAssessment.mutateAsync({ id: assessmentId, ...data, status: nextStatus, injuries: injuries.length > 0 ? injuries : null });
+      // Omit an InBody/VO2 URL the server already has. The update route marks
+      // them optional, so leaving one out keeps the stored value untouched.
+      const payload = omitUnchanged(
+        { ...data, status: nextStatus, injuries: injuries.length > 0 ? injuries : null },
+        savedHeavyRef.current,
+        HEAVY_ASSESSMENT_FIELDS,
+      );
+      await updateAssessment.mutateAsync({ id: assessmentId, ...payload });
+      // The server now holds these, whether we just sent them or skipped them.
+      savedHeavyRef.current = Object.fromEntries(
+        HEAVY_ASSESSMENT_FIELDS.map(f => [f, (data as any)[f] ?? null]),
+      );
       utils.assessment.get.invalidate({ id: assessmentId });
       if (nextStatus !== formData.status) setFormData((prev: any) => prev ? { ...prev, status: nextStatus } : prev);
       // Only clear the dirty flag if no edit landed while this save was in flight.
@@ -407,24 +429,22 @@ export default function AssessmentEditor() {
                 accept=".pdf,image/jpeg,image/png,image/webp"
                 currentFileUrl={formData.inbodyFileUrl}
                 currentFileName={formData.inbodyFileName}
+                // Errors propagate to FileUploadArea, which owns the single
+                // success/failure toast. Catching here would resolve normally
+                // and make the caller report a success that never happened.
                 onUpload={async (file) => {
-                  try {
-                    const base64 = await fileToBase64(file);
-                    const result = await uploadFile.mutateAsync({
-                      folder: "inbody",
-                      fileName: `${Date.now()}-${file.name}`,
-                      base64Data: base64,
-                      contentType: file.type,
-                    });
-                    if (!result?.url) {
-                      throw new Error("Upload did not return a storage URL.");
-                    }
-                    updateField("inbodyFileUrl", result.url);
-                    updateField("inbodyFileName", file.name);
-                    toast.success("InBody PDF uploaded");
-                  } catch (err: any) {
-                    toast.error(err?.message || "InBody upload failed");
+                  const base64 = await fileToBase64(file);
+                  const result = await uploadFile.mutateAsync({
+                    folder: "inbody",
+                    fileName: `${Date.now()}-${file.name}`,
+                    base64Data: base64,
+                    contentType: file.type,
+                  });
+                  if (!result?.url) {
+                    throw new Error("Upload did not return a storage URL.");
                   }
+                  updateField("inbodyFileUrl", result.url);
+                  updateField("inbodyFileName", file.name);
                 }}
                 onRemove={() => {
                   updateField("inbodyFileUrl", null);
@@ -450,24 +470,21 @@ export default function AssessmentEditor() {
                 accept=".pdf,image/jpeg,image/png,image/webp"
                 currentFileUrl={formData.vo2FileUrl}
                 currentFileName={formData.vo2FileName}
+                // See the InBody handler above: no catch here, so a failure
+                // reaches FileUploadArea instead of being reported as success.
                 onUpload={async (file) => {
-                  try {
-                    const base64 = await fileToBase64(file);
-                    const result = await uploadFile.mutateAsync({
-                      folder: "vo2",
-                      fileName: `${Date.now()}-${file.name}`,
-                      base64Data: base64,
-                      contentType: file.type,
-                    });
-                    if (!result?.url) {
-                      throw new Error("Upload did not return a storage URL.");
-                    }
-                    updateField("vo2FileUrl", result.url);
-                    updateField("vo2FileName", file.name);
-                    toast.success("VO2 PDF uploaded");
-                  } catch (err: any) {
-                    toast.error(err?.message || "VO2 upload failed");
+                  const base64 = await fileToBase64(file);
+                  const result = await uploadFile.mutateAsync({
+                    folder: "vo2",
+                    fileName: `${Date.now()}-${file.name}`,
+                    base64Data: base64,
+                    contentType: file.type,
+                  });
+                  if (!result?.url) {
+                    throw new Error("Upload did not return a storage URL.");
                   }
+                  updateField("vo2FileUrl", result.url);
+                  updateField("vo2FileName", file.name);
                 }}
                 onRemove={() => {
                   updateField("vo2FileUrl", null);
@@ -590,16 +607,22 @@ function FileUploadArea({ label, accept, currentFileUrl, currentFileName, onUplo
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("File too large (max 20MB)");
+    // Checked before reading the file, so an oversized PDF is refused instantly
+    // rather than after a long upload the server can only reject at the end.
+    const tooLarge = uploadSizeError(file.size);
+    if (tooLarge) {
+      toast.error(tooLarge);
+      e.target.value = "";
       return;
     }
     setUploading(true);
     try {
       await onUpload(file);
-      toast.success(`${label} uploaded successfully`);
+      // Only reached when onUpload actually resolved. It must not swallow its
+      // own errors, or this reports a success that never happened.
+      toast.success(`${label} uploaded`);
     } catch (err: any) {
-      toast.error(err.message || "Upload failed");
+      toast.error(uploadErrorMessage(err));
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -646,7 +669,7 @@ function FileUploadArea({ label, accept, currentFileUrl, currentFileName, onUplo
         <div className="flex flex-col items-center gap-2">
           <Upload className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm font-medium">Upload {label}</p>
-          <p className="text-xs text-muted-foreground">PDF or image files, max 20MB</p>
+          <p className="text-xs text-muted-foreground">PDF or image files, max {formatBytes(MAX_UPLOAD_BYTES)}</p>
         </div>
       )}
     </div>
