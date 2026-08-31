@@ -36,8 +36,36 @@ describe("report export data", () => {
   // 100vh cover overflowed onto a second, blank page.
   it("sizes the cover in absolute units, never vh", () => {
     const cover = source.match(/\n  \.cover \{[\s\S]*?\n  \}/)?.[0] ?? "";
-    expect(cover).toMatch(/height: 256mm;/);
+    expect(cover).toMatch(/height: \d+mm;/);
     expect(cover).not.toMatch(/height:[^;]*vh/);
+  });
+
+  // Safari honours neither break-inside nor break-after: avoid here, so the
+  // only way to stop a phase title stranding at the foot of a page with its
+  // photos overleaf is to force the break between groups.
+  it("forces a page break between screenshot phase groups", () => {
+    expect(source).toMatch(
+      /\.ss-phase-group \+ \.ss-phase-group \{[\s\S]*?page-break-before: always;/,
+    );
+  });
+
+  // Without this the flex item keeps its default min-height: auto, refuses to
+  // shrink below its content, and pushes the cover's bottom bar out past the
+  // page margin where the print engine clips it.
+  it("lets the cover's top section shrink so the bottom bar stays in the box", () => {
+    const top = source.match(/\.cover-top \{[\s\S]*?\n  \}/)?.[0] ?? "";
+    expect(top).toMatch(/min-height: 0;/);
+  });
+
+  // A snug fit is what put the bottom bar on page 2 twice. The cover must clear
+  // the shortest page box it can plausibly be printed into — US Letter (279mm)
+  // less our 16mm/18mm page margins — so a browser that ignores our @page size,
+  // or adds its own minimum printable margins, still cannot push it over.
+  it("keeps the cover short enough for the shortest realistic page box", () => {
+    const cover = source.match(/\n  \.cover \{[\s\S]*?\n  \}/)?.[0] ?? "";
+    const mm = Number(cover.match(/height: (\d+)mm;/)?.[1]);
+    expect(mm).toBeGreaterThan(155); // taller than the cover's own content
+    expect(mm).toBeLessThanOrEqual(245); // 279mm Letter less 16mm + 18mm
   });
 
   // Safari ignores the :first selector but still applies the declarations
