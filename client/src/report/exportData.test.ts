@@ -40,6 +40,15 @@ describe("report export data", () => {
     expect(cover).not.toMatch(/height:[^;]*vh/);
   });
 
+  // Safari honours neither break-inside nor break-after: avoid here, so the
+  // only way to stop a phase title stranding at the foot of a page with its
+  // photos overleaf is to force the break between groups.
+  it("forces a page break between screenshot phase groups", () => {
+    expect(source).toMatch(
+      /\.ss-phase-group \+ \.ss-phase-group \{[\s\S]*?page-break-before: always;/,
+    );
+  });
+
   // Without this the flex item keeps its default min-height: auto, refuses to
   // shrink below its content, and pushes the cover's bottom bar out past the
   // page margin where the print engine clips it.

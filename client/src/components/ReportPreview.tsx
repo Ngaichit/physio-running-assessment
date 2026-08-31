@@ -1213,12 +1213,17 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   }
 
   /* ===== SCREENSHOT GRID ===== */
-  /* Deliberately breakable. A phase holds four screenshots and rarely fits in
-     whatever is left of a page, so keeping the whole group together stranded it
-     on the next page and left most of the previous one blank. Each .ss-row is
-     kept intact on its own, which is the pairing that actually has to stay
-     side by side. */
-  .ss-phase-group { page-break-inside: auto; }
+  /* One pair per page, forced. A group is a phase title plus a single row of
+     two tall screenshots — about 190mm — so two of them never fit in the 263mm
+     print box regardless. Holding a title to its row with break-inside/
+     break-after: avoid does not work here because Safari honours neither, and
+     the title kept stranding at the foot of a page with its photos overleaf.
+     Forcing the break between groups costs no extra pages and keeps every
+     title attached to the pair it labels. */
+  .ss-phase-group { page-break-inside: avoid; break-inside: avoid; }
+  .ss-phase-group + .ss-phase-group {
+    page-break-before: always; break-before: page;
+  }
   .ss-phase-title {
     font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700;
     color: ${BRAND.navy}; text-transform: uppercase; letter-spacing: 1px;
