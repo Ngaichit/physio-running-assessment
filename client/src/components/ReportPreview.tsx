@@ -13,6 +13,7 @@ import { toast } from "sonner";
 const PdfPageRenderer = lazy(() => import("@/components/PdfPageRenderer"));
 import { escapeHtml } from "@/report/escape";
 import { browserBlobUrls, deliverReport } from "@/report/deliverReport";
+import { annotationDisplayAngle } from "@/lib/annotationGeometry";
 // Plain text renderer - replaces Streamdown to prevent markdown/code rendering
 // Flatten any value to a plain string. Handles cases where the AI returned
 // { title, content } or { text } objects instead of strings.
@@ -212,13 +213,13 @@ function drawAnnotationsOnCanvas(ctx: CanvasRenderingContext2D, w: number, h: nu
       const vx = pts[1].x * w;
       const vy = pts[1].y * h;
       const mode = data?.angleMode || (ann.useOuterAngle ? "outer" : "inner");
-      const dx1 = pts[0].x - pts[1].x, dy1 = pts[0].y - pts[1].y;
-      const dx2 = pts[2].x - pts[1].x, dy2 = pts[2].y - pts[1].y;
-      const dot = dx1*dx2 + dy1*dy2;
-      const cross = dx1*dy2 - dy1*dx2;
-      let inner = Math.atan2(Math.abs(cross), dot) * (180 / Math.PI);
-      if (cross < 0) inner = 360 - inner;
-      const displayVal = mode === "outer" ? Math.round((360 - inner) * 10) / 10 : mode === "supplement" ? Math.round(Math.abs(180 - inner) * 10) / 10 : Math.round(inner * 10) / 10;
+      // Print the stored reading. This used to recompute the angle from the
+      // points with a winding-aware formula the annotator does not share, so a
+      // corner clicked in the opposite order came out as its reflex angle and
+      // inner/outer were swapped — "I picked the other angle but it shows the
+      // wrong one". It also dropped the +/- direction flag.
+      const displayVal = annotationDisplayAngle(ann.measuredValue, pts, mode, data?.isNegative === true);
+      if (displayVal == null) continue;
       const fontSize = Math.max(14, w / 40);
       ctx.font = `bold ${fontSize}px monospace`;
       const label = `${displayVal}\u00B0`;
@@ -1020,7 +1021,7 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   body { font-family: 'Source Sans 3', 'Source Sans Pro', -apple-system, sans-serif; font-size: 11px; color: ${BRAND.text}; line-height: 1.6; background: ${BRAND.grayLight}; }
   @page {
     size: A4;
-    margin: 20mm 18mm 24mm 18mm;
+    margin: 16mm 15mm 18mm 15mm;
     @bottom-left {
       content: "TOTAL HEALTH";
       font-family: 'Inter', sans-serif;
@@ -1042,21 +1043,20 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
       padding-top: 8mm;
     }
   }
-  /* Suppress footer on cover page (first page) — it has its own bottom bar */
+  /* Suppress the running footer on the cover — it has its own bottom bar.
+     This block must not set a margin. Safari ignores the :first selector but
+     still applies the declarations inside it, so a margin: 0 here silently
+     became the margin for EVERY page: text printed hard against the paper edge
+     and the footers had no margin box left to draw into. Only content: none is
+     safe here, because suppressing the footers on every page is what Safari
+     does anyway. */
   @page :first {
-    margin: 0;
     @bottom-left { content: none; }
     @bottom-right { content: none; }
   }
   @media print {
     .no-print { display: none !important; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
-    /* vh resolves against the screen viewport in Safari's print rendering, not
-       the page box, so a 100vh cover is taller than the page: the top stretches
-       into a white gap and the bottom bar spills onto a second, blank page.
-       @page :first sets margin 0, so the first page box is a full A4 — 296mm
-       fills it with a hair of slack for rounding. */
-    .cover { height: 296mm; }
   }
 
   /* ===== TYPOGRAPHY ===== */
@@ -1066,7 +1066,14 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   /* ===== COVER PAGE ===== */
   .cover {
     page-break-after: always;
-    height: 100vh;
+    /* An absolute height, never vh. Safari resolves vh against the screen
+       viewport rather than the page box when printing, so the cover grew to
+       whatever the window happened to be and spilled its bottom bar onto a
+       second, otherwise-empty page. 256mm fits the 263mm print box (A4 less
+       16mm/18mm page margins) with slack for rounding, and still fits a full
+       297mm sheet if a browser ignores the @page margins entirely — so this
+       cannot run onto a second page either way. */
+    height: 256mm;
     display: flex; flex-direction: column;
     background: white;
     overflow: hidden;
@@ -1192,7 +1199,12 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   }
 
   /* ===== SCREENSHOT GRID ===== */
-  .ss-phase-group { page-break-inside: avoid; }
+  /* Deliberately breakable. A phase holds four screenshots and rarely fits in
+     whatever is left of a page, so keeping the whole group together stranded it
+     on the next page and left most of the previous one blank. Each .ss-row is
+     kept intact on its own, which is the pairing that actually has to stay
+     side by side. */
+  .ss-phase-group { page-break-inside: auto; }
   .ss-phase-title {
     font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700;
     color: ${BRAND.navy}; text-transform: uppercase; letter-spacing: 1px;

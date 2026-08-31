@@ -34,7 +34,31 @@ describe("report export data", () => {
 
   // vh resolves against the screen viewport in Safari's print rendering, so a
   // 100vh cover overflowed onto a second, blank page.
-  it("gives the cover a page-sized height in print", () => {
-    expect(source).toMatch(/@media print \{[\s\S]*?\.cover \{ height: 296mm; \}/);
+  it("sizes the cover in absolute units, never vh", () => {
+    const cover = source.match(/\n  \.cover \{[\s\S]*?\n  \}/)?.[0] ?? "";
+    expect(cover).toMatch(/height: 256mm;/);
+    expect(cover).not.toMatch(/height:[^;]*vh/);
+  });
+
+  // Safari ignores the :first selector but still applies the declarations
+  // inside it, so a margin here silently becomes the margin for EVERY page.
+  // That is how the printed report lost all four of its page margins and
+  // started printing text hard against the edge of the paper.
+  it("never sets a margin inside @page :first", () => {
+    const first = source.match(/@page :first \{[\s\S]*?\n  \}/)?.[0] ?? "";
+    expect(first).toBeTruthy();
+    expect(first).not.toMatch(/margin/);
+  });
+
+  it("keeps real margins on the @page rule", () => {
+    expect(source).toMatch(/@page \{\s*size: A4;\s*margin: 16mm 15mm 18mm 15mm;/);
+  });
+
+  // The pill drawn on each photo must print the stored reading. Recomputing it
+  // locally is what swapped inner and outer angles depending on the order the
+  // three points happened to be clicked.
+  it("labels angle annotations from the stored measuredValue", () => {
+    expect(source).toMatch(/annotationDisplayAngle\(\s*ann\.measuredValue/);
+    expect(source).not.toMatch(/if \(cross < 0\) inner = 360 - inner/);
   });
 });
