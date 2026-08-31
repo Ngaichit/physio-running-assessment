@@ -1069,11 +1069,19 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
     /* An absolute height, never vh. Safari resolves vh against the screen
        viewport rather than the page box when printing, so the cover grew to
        whatever the window happened to be and spilled its bottom bar onto a
-       second, otherwise-empty page. 256mm fits the 263mm print box (A4 less
-       16mm/18mm page margins) with slack for rounding, and still fits a full
-       297mm sheet if a browser ignores the @page margins entirely — so this
-       cannot run onto a second page either way. */
-    height: 256mm;
+       second, otherwise-empty page.
+
+       The height is deliberately well under the page box rather than a snug
+       fit. The cover's own content measures ~155mm, so everything above that
+       is breathing room, and the only job of the number is to sit the bottom
+       bar low on the page without ever tipping onto page 2. An earlier 256mm
+       left just 7mm of slack in the 263mm A4 print box, and a browser that
+       enforces its own minimum printable margins on top of ours eats that,
+       spilling the bar alone onto a second page. 225mm keeps ~38mm of slack on
+       A4, still fits the shorter US Letter box (245mm) if a browser ignores
+       our @page size, and clears a full 297mm sheet if it ignores the margins
+       too. */
+    height: 225mm;
     display: flex; flex-direction: column;
     background: white;
     overflow: hidden;

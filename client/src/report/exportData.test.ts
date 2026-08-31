@@ -36,8 +36,19 @@ describe("report export data", () => {
   // 100vh cover overflowed onto a second, blank page.
   it("sizes the cover in absolute units, never vh", () => {
     const cover = source.match(/\n  \.cover \{[\s\S]*?\n  \}/)?.[0] ?? "";
-    expect(cover).toMatch(/height: 256mm;/);
+    expect(cover).toMatch(/height: \d+mm;/);
     expect(cover).not.toMatch(/height:[^;]*vh/);
+  });
+
+  // A snug fit is what put the bottom bar on page 2 twice. The cover must clear
+  // the shortest page box it can plausibly be printed into — US Letter (279mm)
+  // less our 16mm/18mm page margins — so a browser that ignores our @page size,
+  // or adds its own minimum printable margins, still cannot push it over.
+  it("keeps the cover short enough for the shortest realistic page box", () => {
+    const cover = source.match(/\n  \.cover \{[\s\S]*?\n  \}/)?.[0] ?? "";
+    const mm = Number(cover.match(/height: (\d+)mm;/)?.[1]);
+    expect(mm).toBeGreaterThan(155); // taller than the cover's own content
+    expect(mm).toBeLessThanOrEqual(245); // 279mm Letter less 16mm + 18mm
   });
 
   // Safari ignores the :first selector but still applies the declarations
