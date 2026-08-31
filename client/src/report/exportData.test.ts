@@ -40,6 +40,14 @@ describe("report export data", () => {
     expect(cover).not.toMatch(/height:[^;]*vh/);
   });
 
+  // Without this the flex item keeps its default min-height: auto, refuses to
+  // shrink below its content, and pushes the cover's bottom bar out past the
+  // page margin where the print engine clips it.
+  it("lets the cover's top section shrink so the bottom bar stays in the box", () => {
+    const top = source.match(/\.cover-top \{[\s\S]*?\n  \}/)?.[0] ?? "";
+    expect(top).toMatch(/min-height: 0;/);
+  });
+
   // A snug fit is what put the bottom bar on page 2 twice. The cover must clear
   // the shortest page box it can plausibly be printed into — US Letter (279mm)
   // less our 16mm/18mm page margins — so a browser that ignores our @page size,

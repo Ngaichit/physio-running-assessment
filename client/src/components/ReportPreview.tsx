@@ -1090,6 +1090,12 @@ export default function ReportPreview({ assessmentId, formData }: Props) {
   }
   .cover-top {
     flex: 1; display: flex; flex-direction: row; align-items: stretch;
+    /* A flex item defaults to min-height: auto, so it refuses to shrink below
+       its content and takes the cover's whole height for itself — which pushed
+       the bottom bar out past the page margin, where the print engine clipped
+       it and its "Confidential" line vanished off the cover. min-height: 0 lets
+       it share the box so the bar stays inside. */
+    min-height: 0;
   }
   .cover-left {
     flex: 1; display: flex; flex-direction: column; justify-content: center;
